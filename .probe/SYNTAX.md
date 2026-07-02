@@ -1,0 +1,56 @@
+# Mojo 1.0.0b3 cheat sheet for `color-mojo`
+
+Base table ported from the sibling `.probe/SYNTAX.md` (http-client-mojo, 2026-06-18); local findings probed on `1.0.0b3.dev2026070123` by the `probe_*.mojo` files in this directory. Every line below is _probed_, not remembered.
+
+## Language shape (ported, sibling-verified)
+
+| Form                                   | Status                      | Use                                                                      |
+| -------------------------------------- | --------------------------- | ------------------------------------------------------------------------ |
+| `fn` keyword                           | REMOVED                     | use `def`                                                                |
+| `alias` keyword                        | deprecated                  | use `comptime`                                                           |
+| `@parameter if`                        | deprecated                  | use `comptime if`                                                        |
+| `@register_passable("trivial")`        | REMOVED                     | conform to `TrivialRegisterPassable` trait                               |
+| `Stringable` trait                     | gone                        | expose `name() -> StaticString` or `write_to[W: Writer](self, mut w: W)` |
+| `EqualityComparable`                   | not in scope                | `Comparable` already implies it                                          |
+| `owned` keyword in params              | replaced                    | `def f(var x: T)`                                                        |
+| Module-level mutable `var`             | ERROR — globals unsupported | pass state down                                                          |
+| Module-level `comptime` const          | OK                          | compile-time constants                                                   |
+| Generic struct field referencing param | `Self.S`, not bare `S`      | `var sub: Self.S`                                                        |
+| Trait method body                      | `...` (ellipsis)            | declaration only                                                         |
+| Trait base for owned types             | needs `ImplicitlyDeletable` | `trait T(Copyable, Movable, ImplicitlyDeletable)`                        |
+| `comptime if` inside `@always_inline`  | DCE verified                | erased branch produces no output                                         |
+| `UnsafePointer` mutable origin         | `MutAnyOrigin`              | not `MutableAnyOrigin`                                                   |
+| String byte slice                      | `s[byte=a:b]`               | direct `s[a:b]` rejected                                                 |
+
+## Stdlib I/O (ported, sibling-verified)
+
+| Need        | Import / call                                                   |
+| ----------- | --------------------------------------------------------------- |
+| Write to fd | `from std.io import FileDescriptor; FileDescriptor(2).write(s)` |
+| Env var     | `from std.os import getenv` — `String`, empty if unset          |
+| isatty      | `from std.os import isatty; isatty(2) -> Bool`                  |
+
+## Local findings (probed here, 1.0.0b3.dev2026070123)
+
+| #   | Finding                                                                                                                                                                                                                                                             | Probe file                                                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| 1   | `def emit[W: Writer](mut writer: W)` works as a generic bound; `String` conforms to `Writer`; variadic `writer.write("alpha ", 42)` works                                                                                                                           | `probe_writer_trait.mojo`                                  |
+| 2   | `Writer` requires exactly one method: `write_string(mut self, string: StringSlice)` (declared in `std/format`); the variadic `write(*args)` is derived from it; **no `write_bytes` exists**; `List[UInt8]` does NOT conform; a 5-line wrapper struct does           | `probe_custom_writer.mojo`, `probe_writer_byte_sinks.mojo` |
+| 3   | `String(from_utf8=span)` raises (validating); `String(unsafe_from_utf8=span)` does not raise; a `List[UInt8]` converts implicitly to `Span[UInt8]` at these call sites                                                                                              | `probe_string_from_bytes.mojo`                             |
+| 4   | `String(unsafe_uninit_length=n)` allocates an exact-length string; `text.unsafe_ptr_mut()` exposes the buffer for direct byte fill; prints correctly afterward                                                                                                      | `probe_string_uninitialized.mojo`                          |
+| 5   | Full `String.__init__` overload inventory captured via deliberate bad-keyword error: `capacity=`, `unsafe_from_utf8=`, `from_utf8=`, `from_utf8_lossy=`, `unsafe_uninit_length=`, `Writable` variadic, and more                                                     | `probe_string_constructor_overloads.mojo`                  |
+| 6   | Fluent immutable builder works: no-argument `__init__(out self)` plus chained methods; returning a local requires an explicit move (`return next^`) — implicit copy needs `ImplicitlyCopyable`                                                                      | `probe_fluent_construction.mojo`                           |
+| 7   | `case` is a reserved keyword — unusable as a parameter name                                                                                                                                                                                                         | `probe_function_as_parameter.mojo`                         |
+| 8   | NEGATIVE: a named `def` does not coerce to an anonymous `def () raises -> None` parameter type — function-as-comptime-parameter dispatch is unusable; test runners keep explicit try/except blocks                                                                  | `probe_function_as_parameter.mojo`                         |
+| 9   | NEGATIVE: `InlineArray[T, n](v1, v2, …)` variadic-values constructor does not exist — use `uninitialized=True` plus stores, or a branch helper                                                                                                                      | first build of `_internal/quantize.mojo`                   |
+| 10  | Passing `UnsafePointer` across a `MutAnyOrigin` parameter boundary warns: implicit origin erasure is deprecated, slated for removal — keep a concrete origin (pass `mut text: String` and take the pointer inside) or cast explicitly with `as_unsafe_any_origin()` | first build of `_internal/decimal.mojo`                    |
+| 11  | `mojo package` is deprecated in favor of `mojo precompile`, and `.mojopkg` in favor of `.mojoc` — packaging tooling (conda recipe) should use the new forms                                                                                                         | `mojo package color` warning output                        |
+| 12  | `StringSlice(unsafe_from_utf8=Span(inline_array)[0:n])` works — a zero-allocation string view over stack storage; enables a stack-built open sequence for `paint_into` if that last small allocation ever matters                                                   | `probe_stringslice_from_stack.mojo`                        |
+
+## Render-path consequences
+
+| Decision                                                                                                                                                               | Basis                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `paint` allocates once: `String(unsafe_uninit_length=exact)` + direct byte fill — zero copies, **no `raises`**                                                         | findings 3, 4; soundness invariant: only ASCII escape bytes plus the caller's already-valid UTF-8 are assembled |
+| `paint_into[W: Writer]` emits through `write_string` with `StringSlice` chunks; `String` works as a sink out of the box; byte buffers wrap in a 5-line `Writer` struct | findings 1, 2                                                                                                   |
+| Test runner stays explicit try/except per test                                                                                                                         | finding 8                                                                                                       |
