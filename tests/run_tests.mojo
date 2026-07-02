@@ -563,6 +563,19 @@ def test_painter_composes_with_resolve() raises:
         "a no_color resolution renders plain",
     )
 
+    # Painter.resolve is one line over the two-step form — same engine.
+    _assert(
+        Painter.resolve(
+            is_tty=True, colorterm="truecolor", term="xterm"
+        ).level()
+        == painter.level(),
+        "Painter.resolve matches from_level over ColorLevel.resolve",
+    )
+    _assert(
+        Painter.resolve(is_tty=False, term="xterm").red("x") == "x",
+        "a non-TTY Painter.resolve renders plain",
+    )
+
 
 # --- visible -----------------------------------------------------------------
 

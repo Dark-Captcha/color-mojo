@@ -77,7 +77,7 @@ What users want reduces to one sentence: the color, with automatic reset, and no
 | Attributes  | Bold, dim, italic, underline, blink, reverse, hidden, strikethrough                                                           |
 | Composition | Fluent, order-insensitive style builder; styles are plain values                                                              |
 | Resolution  | Pure `ColorLevel.resolve` over caller-supplied signals: `no_color` > force flags (`0`/`false` disable, never force) > `clicolor=0` > TTY > `term=dumb` veto > numeric `force_color` floors > `colorterm` > `term` |
-| Control     | Injectable capability tier — resolved signals, configuration, tests, forced modes; one handle per destination                 |
+| Control     | Injectable capability tier (`from_level`) or one-call `Painter.resolve` over supplied signals; one handle per destination     |
 | Rendering   | Single-allocation string paint; writer paint allocates nothing — the open sequence is assembled on the stack                  |
 | Text truth  | Escape stripping and visible-width measurement, always consistent with what paint produces                                    |
 
@@ -118,7 +118,7 @@ Seven names. Everything else lives under `_internal/` and is not part of the con
 | `Color`      | 4-byte tagged value, `Comparable` | 16 named constants (`BLACK` … `BRIGHT_WHITE`); `ansi256(index)`, `rgb(*, red, green, blue)`, `from_hex(text) raises`; `downgrade_to(level)`                                               |
 | `Attribute`  | 1-byte bitset, `Comparable`       | `NONE` + 8 constants (`BOLD` … `STRIKETHROUGH`); `__or__`, `__and__`, `contains`, `is_empty`                                                                                              |
 | `Style`      | intent value, immutable builder   | `Style()` empty; `foreground`, `background`, `attribute` + 8 shortcuts; `is_empty`; `paint(text)`, `paint_into[W: Writer](writer, text)`                                                  |
-| `Painter`    | 1-byte capability handle          | `plain()`, `from_level(level)`; `level()`, `is_enabled()`; `paint(style, text)`, `paint_into[W: Writer](writer, style, text)`; 24 sugar methods (16 colors, 8 attributes) |
+| `Painter`    | 1-byte capability handle          | `plain()`, `from_level(level)`, `resolve(*, is_tty, no_color, …)` — `from_level` over `ColorLevel.resolve` in one call; `level()`, `is_enabled()`; `paint(style, text)`, `paint_into[W: Writer](writer, style, text)`; 24 sugar methods (16 colors, 8 attributes) |
 
 ### Functions
 

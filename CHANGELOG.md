@@ -9,6 +9,7 @@ All notable changes to color-mojo. Format follows [Keep a Changelog](https://kee
 - `ColorLevel.resolve(*, is_tty, no_color, force_color, clicolor, clicolor_force, colorterm, term)` — the same standards-honoring ladder as before, as a pure function of explicitly supplied signals. Deterministic, unit-testable without touching the process (the test suite no longer calls `setenv` at all), and comptime-evaluable for build-time-fixed deployments. The application gathers the signals — `std.os.getenv` / `std.os.isatty`, a config file, CLI flags — and the README shows the one-liner wiring.
 - `strip_escapes` / `visible_width` now consume ECMA-48 §5.6 command strings — DCS (`ESC P`), SOS (`ESC X`), PM (`ESC ^`), APC (`ESC _`) — to their `ST` terminator, exactly as a terminal does. Previously only the two opening bytes were removed, so sixel data or tmux passthrough payloads leaked into "visible" output. BEL remains a terminator for OSC only.
 - Resolution honors `clicolor="0"` (disables unless a force flag is set) and numeric `force_color` levels: `1`/`2`/`3` floor the tier at ANSI16/ANSI256/truecolor — supports-color semantics, so a richer `colorterm`/`term` announcement still wins, and `term="dumb"` still vetoes everything.
+- `Painter.resolve(*, is_tty, …)` — `from_level(ColorLevel.resolve(...))` in one call, so a terminal application's startup line stays a single expression.
 
 ### Changed
 

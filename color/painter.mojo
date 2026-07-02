@@ -4,9 +4,10 @@
 # Painter downgrades the declaration to the destination's tier and paints.
 # At NONE everything renders as plain text — attributes included.
 #
-# A Painter is built from a tier the application already holds — `plain()`
-# or `from_level(level)`, typically `ColorLevel.resolve(...)` over signals
-# the application gathered. Nothing here reads the process environment.
+# A Painter is built from a tier the application already holds: `plain()`,
+# `from_level(level)`, or `resolve(...)` — `from_level` over
+# `ColorLevel.resolve` in one call, for signals the application gathered.
+# Nothing here reads the process environment.
 
 from color.color import Color
 from color.color_level import ColorLevel
@@ -15,8 +16,8 @@ from color.style import Style
 
 struct Painter(Copyable, Movable, TrivialRegisterPassable):
     """Capability-honest renderer for one destination. Build with `plain`
-    (never any escapes) or `from_level` (an injected tier — resolved
-    signals, configuration, tests, forced modes)."""
+    (never any escapes), `from_level` (an injected tier — configuration,
+    tests, forced modes), or `resolve` (a tier from supplied signals)."""
 
     var _level: ColorLevel
 
@@ -38,6 +39,33 @@ struct Painter(Copyable, Movable, TrivialRegisterPassable):
         """A Painter at an explicit capability tier — byte-deterministic
         rendering for tests and configuration-driven forcing."""
         return Painter(level=level)
+
+    @staticmethod
+    @always_inline
+    def resolve(
+        *,
+        is_tty: Bool,
+        no_color: String = "",
+        force_color: String = "",
+        clicolor: String = "",
+        clicolor_force: String = "",
+        colorterm: String = "",
+        term: String = "",
+    ) -> Painter:
+        """`from_level(ColorLevel.resolve(...))` in one call — the startup
+        line of a terminal application. Pure like everything here: the
+        caller supplies the signals; nothing reads the process."""
+        return Painter(
+            level=ColorLevel.resolve(
+                is_tty=is_tty,
+                no_color=no_color,
+                force_color=force_color,
+                clicolor=clicolor,
+                clicolor_force=clicolor_force,
+                colorterm=colorterm,
+                term=term,
+            )
+        )
 
     # --- Inspection -----------------------------------------------------------
 

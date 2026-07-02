@@ -3,14 +3,12 @@
 Typed ANSI color for Mojo — styling intent in, the right bytes out, wherever the text lands. Full escapes on a capable terminal, the nearest approximation on a lesser one, plain text everywhere else. And never a hidden read: the library is a pure function of signals your application supplies — no environment access, no global state, no surprises inside someone else's process.
 
 ```mojo
-from color import Painter, Style, Color, ColorLevel
+from color import Painter, Style, Color
 
 def main() raises:
     # Resolve once from signals your app gathered (env, config, flags),
     # then paint everywhere. The library itself never probes anything.
-    var painter = Painter.from_level(
-        ColorLevel.resolve(is_tty=True, term="xterm-256color")
-    )
+    var painter = Painter.resolve(is_tty=True, term="xterm-256color")
     print(painter.green("ok"), painter.bright_yellow("warn"))
 
     var accent = Style().foreground(Color.from_hex("#ff6400")).bold()
@@ -41,7 +39,7 @@ The application owns its sources — that is the point. For a classic terminal p
 ```mojo
 from std.os import getenv, isatty
 
-var level = ColorLevel.resolve(
+var painter = Painter.resolve(
     is_tty=isatty(1),
     no_color=getenv("NO_COLOR"),
     force_color=getenv("FORCE_COLOR"),
@@ -50,8 +48,9 @@ var level = ColorLevel.resolve(
     colorterm=getenv("COLORTERM"),
     term=getenv("TERM"),
 )
-var painter = Painter.from_level(level)
 ```
+
+`ColorLevel.resolve` is the same ladder when you want the tier itself — `Painter.resolve` is `from_level` over it, one call instead of two.
 
 Resolve once per destination at startup (stdout and stderr can disagree) and keep the one-byte `Painter`. A config file, a `--color=never` flag, or a test harness feeds the same resolver — or skips it entirely with `Painter.plain()` / `Painter.from_level(ColorLevel.TRUECOLOR)`.
 
@@ -71,15 +70,15 @@ print(p.red("start " + p.bold("mid") + " end"))                 # wrong: "end" i
 
 ## The surface — seven names
 
-| Name                  | Role                                                                                                      |
-| --------------------- | --------------------------------------------------------------------------------------------------------- |
-| `Color`               | 16 named constants, `ansi256(index)`, `rgb(*, red, green, blue)`, `from_hex(text)`, `downgrade_to(level)` |
-| `Attribute`           | `BOLD` … `STRIKETHROUGH` — combine with `\|`                                                              |
-| `Style`               | Fluent builder; `paint(text)`, `paint_into(writer, text)` — verbatim                                      |
-| `Painter`             | `plain()`, `from_level(level)`; capability-honest `paint` / `paint_into`; 24 sugar methods                |
-| `ColorLevel`          | `NONE < ANSI16 < ANSI256 < TRUECOLOR`; pure `resolve(*, is_tty, no_color, …)` turns signals into a tier   |
-| `strip_escapes(text)` | The text a reader actually sees (CSI, OSC, DCS/SOS/PM/APC strings, plain escapes)                         |
-| `visible_width(text)` | Code points outside escapes — layout truth                                                                |
+| Name                  | Role                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `Color`               | 16 named constants, `ansi256(index)`, `rgb(*, red, green, blue)`, `from_hex(text)`, `downgrade_to(level)`           |
+| `Attribute`           | `BOLD` … `STRIKETHROUGH` — combine with `\|`                                                                        |
+| `Style`               | Fluent builder; `paint(text)`, `paint_into(writer, text)` — verbatim                                                |
+| `Painter`             | `plain()`, `from_level(level)`, `resolve(*, is_tty, …)`; capability-honest `paint` / `paint_into`; 24 sugar methods |
+| `ColorLevel`          | `NONE < ANSI16 < ANSI256 < TRUECOLOR`; pure `resolve(*, is_tty, no_color, …)` turns signals into a tier             |
+| `strip_escapes(text)` | The text a reader actually sees (CSI, OSC, DCS/SOS/PM/APC strings, plain escapes)                                   |
+| `visible_width(text)` | Code points outside escapes — layout truth                                                                          |
 
 `Style` declares WHAT; `Painter` knows WHERE; the application decides FROM WHAT. Tests inject `Painter.from_level(...)` and get byte-deterministic output.
 

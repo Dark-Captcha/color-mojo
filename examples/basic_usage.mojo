@@ -17,10 +17,9 @@ from color import (
 
 def main() raises:
     print("== resolve once, paint everywhere ==")
-    var level = ColorLevel.resolve(
+    var painter = Painter.resolve(
         is_tty=True, colorterm="truecolor", term="xterm-256color"
     )
-    var painter = Painter.from_level(level)
     print(
         painter.green("ok"), painter.bright_yellow("warn"), painter.red("fail")
     )
