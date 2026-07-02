@@ -2,7 +2,7 @@
 
 All notable changes to color-mojo. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer once 1.0.0 lands.
 
-## [Unreleased]
+## [0.2.0] — 2026-07-03
 
 ### Added
 

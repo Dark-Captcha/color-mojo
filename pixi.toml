@@ -3,7 +3,7 @@ authors = ["Huỳnh Bảo Biên <baobien.dev@gmail.com>"]
 channels = ["https://conda.modular.com/max-nightly", "conda-forge"]
 name = "color-mojo"
 platforms = ["linux-64"]
-version = "0.1.0"
+version = "0.2.0"
 
 [tasks]
 test = "mojo run -I . tests/run_tests.mojo"

@@ -1,6 +1,6 @@
 # Architecture — color-mojo
 
-> **Version:** 0.1.0 | **Updated:** 2026-07-03
+> **Version:** 0.2.0 | **Updated:** 2026-07-03
 
 Purpose, binding contracts, scope, public surface, and system map of color-mojo — the criteria every structural decision in this library is judged against.
 

@@ -1,6 +1,6 @@
 # Performance — color-mojo
 
-> **Version:** 0.1.0 | **Updated:** 2026-07-03
+> **Version:** 0.2.0 | **Updated:** 2026-07-03
 
 Hot-path latency, measured by `pixi run benchmark` (N = 200,000 per path, median of nine runs, x86-64 Linux, Mojo `1.0.0b3.dev2026070123`). Run-to-run spread on this machine is roughly ±10%; treat single-nanosecond differences as noise.
 
@@ -32,7 +32,7 @@ Two vectorization "improvements" were tried and measured slower, so the scalar f
 
 Baseline figures were recorded from the retired prototype before its removal, measured on the same machine against Mojo `1.0.0b3.dev2026061706` — an older nightly and a different day, so treat deltas as indicative rather than exact. This table is the baseline's archival record; the prototype is not reproducible from this repository.
 
-| Path                       | Prototype | 0.1.0 | Delta    |
+| Path                       | Prototype | 0.2.0 | Delta    |
 | -------------------------- | --------- | ----- | -------- |
 | named paint                | 47        | ~8    | **5.9x** |
 | combined paint             | 53        | ~14   | **3.8x** |

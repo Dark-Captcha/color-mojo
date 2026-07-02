@@ -1,6 +1,6 @@
 # References — Standards Governing color-mojo
 
-> **Version:** 0.1.0 | **Updated:** 2026-07-02
+> **Version:** 0.2.0 | **Updated:** 2026-07-03
 
 Vendored and linked specifications for every byte this library emits or parses, with the design consequences drawn from each.
 
