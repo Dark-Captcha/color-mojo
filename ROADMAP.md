@@ -7,7 +7,7 @@ Direction after the 0.1.0 release. Deferred items carry their reason from ARCHIT
 ## Near
 
 | Item                | Notes                                                                                                                                                                                                 |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Package publication | conda recipe + channel (the prototype's recipe retired with the reset); README install section firms up then                                                                                          |
 | macOS platform      | The library is pure computation — no syscalls, no environment reads, no platform branches — so this needs only CI and a platform entry in `pixi.toml`                                                 |
 | Comptime styles     | A `comptime`-parameterized paint could bake a constant style's entire open sequence at build time; the always-inline chain already folds constant styles at call sites, so measure before building it |
@@ -15,7 +15,7 @@ Direction after the 0.1.0 release. Deferred items carry their reason from ARCHIT
 ## Later
 
 | Item                           | Blocked on / reason deferred                                                                                                    |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | Nesting-aware repaint (opt-in) | Requires rescanning every input on every paint — off the default path by design                                                 |
 | OSC-8 hyperlink emitting       | Serves no current contract; stripping already handles incoming links                                                            |
 | Windows console support        | The library's bytes are already correct; a consuming application must enable VT processing — document that recipe when it lands |
