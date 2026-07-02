@@ -44,15 +44,15 @@ Cite entries from this index in module headers rather than restating spec text.
 
 ## External Specifications
 
-| Specification             | Authority          | Governs                                                                                         | Link                                                                           |
-| ------------------------- | ------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| ECMA-48, 5th edition      | Ecma International | CSI grammar (params `0x30`–`0x3F`, intermediates `0x20`–`0x2F`, final `0x40`–`0x7E`); SGR codes | <https://ecma-international.org/publications-and-standards/standards/ecma-48/> |
-| ITU-T T.416 / ISO 8613-6  | ITU-T              | Extended color syntax `38;5;n` and `38;2;r;g;b`                                                 | <https://www.itu.int/rec/T-REC-T.416>                                          |
-| XTerm Control Sequences   | Thomas E. Dickey   | De-facto 256-color palette layout; OSC termination by `BEL` or `ST`                             | <https://invisible-island.net/xterm/ctlseqs/ctlseqs.html>                      |
-| NO_COLOR                  | Community          | `NO_COLOR` set means no color, highest precedence                                               | <https://no-color.org>                                                         |
-| CLICOLOR / CLICOLOR_FORCE | Community          | Force-enable convention honored alongside `FORCE_COLOR`                                         | <https://bixense.com/clicolors/>                                               |
-| UAX #11 East Asian Width  | Unicode Consortium | Wide-glyph column width — a declared non-goal for this library                                  | <https://www.unicode.org/reports/tr11/>                                        |
-| PNG (RFC 2083, Historic)  | IETF               | RGB/RGBA/gamma context; cited but not vendored (102 pages)                                      | <https://www.rfc-editor.org/rfc/rfc2083.txt>                                   |
+| Specification             | Authority          | Governs                                                                                                                                | Link                                                                           |
+| ------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| ECMA-48, 5th edition      | Ecma International | CSI grammar (params `0x30`–`0x3F`, intermediates `0x20`–`0x2F`, final `0x40`–`0x7E`); core SGR codes; §5.6 command strings ending at ST | <https://ecma-international.org/publications-and-standards/standards/ecma-48/> |
+| ITU-T T.416 / ISO 8613-6  | ITU-T              | Extended color model behind `38;5;n` / `38;2;r;g;b` — strict T.416 spells them with colon sub-parameters; semicolons are the de-facto encoding | <https://www.itu.int/rec/T-REC-T.416>                                          |
+| XTerm Control Sequences   | Thomas E. Dickey   | De-facto 256-color palette layout; OSC termination by `BEL` or `ST`; aixterm bright codes 90–97 / 100–107; semicolon extended-color forms | <https://invisible-island.net/xterm/ctlseqs/ctlseqs.html>                      |
+| NO_COLOR                  | Community          | `NO_COLOR` present and non-empty means no color, highest precedence                                                                    | <https://no-color.org>                                                         |
+| CLICOLOR / CLICOLOR_FORCE | Community          | `CLICOLOR=0` disables; `CLICOLOR_FORCE` forces — honored alongside `FORCE_COLOR` (`0`/`false` disable; `1`/`2`/`3` floor the tier)     | <https://bixense.com/clicolors/>                                               |
+| UAX #11 East Asian Width  | Unicode Consortium | Wide-glyph column width — a declared non-goal for this library                                                                         | <https://www.unicode.org/reports/tr11/>                                        |
+| PNG (RFC 2083, Historic)  | IETF               | RGB/RGBA/gamma context; cited but not vendored (102 pages)                                                                             | <https://www.rfc-editor.org/rfc/rfc2083.txt>                                   |
 
 ---
 
@@ -68,7 +68,8 @@ Cite entries from this index in module headers rather than restating spec text.
 | 6   | Charset shifts use `ESC` + intermediate + final; escapes occupy no columns | RFC 1468              | Three-byte sequences are real-world input; escapes are zero-width by precedent                                 |
 | 7   | Terminal color carries `r;g;b` only; alpha exists only in file formats     | ITU-T T.416, RFC 2083 | `Color` has no alpha field; RGBA input must be pre-composited by the caller                                    |
 | 8   | Faithful color reproduction requires gamma and chromaticity management     | RFC 2083              | Quantization is nearest-match in nominal sRGB space — a heuristic, not colorimetry                             |
-| 9   | `TERM` is the conveyed terminal identity; better signals may override it   | RFC 1091, RFC 1572 §6 | Detection ladder: `NO_COLOR` > force flags (`0` disables) > `isatty` > `TERM=dumb` veto > `COLORTERM` > `TERM` |
+| 9   | `TERM` is the conveyed terminal identity; better signals may override it   | RFC 1091, RFC 1572 §6 | Pure resolution ladder (`ColorLevel.resolve`, signals supplied by the application — the library never reads the environment): `no_color` > `force_color` `0`/`false` disable > force flags > `clicolor=0` > TTY > `term=dumb` veto > numeric `force_color` floors > `colorterm` > `term` |
+| 10  | Command strings (OSC, DCS, SOS, PM, APC) run to ST; only OSC ends at BEL   | ECMA-48 §5.6; ctlseqs | `strip_escapes` consumes string payloads exactly as a terminal does; BEL stays payload outside OSC             |
 
 ---
 

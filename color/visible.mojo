@@ -4,13 +4,15 @@
 # operate on foreign text and touch no other public type — integrators can
 # strip and measure without the color machinery (ARCHITECTURE.md, System Map).
 #
-# Recognized sequence classes (ECMA-48 §5.3/§5.4; real-world three-byte
-# forms per RFC 1468): CSI (ESC [ .. final 0x40..0x7E), OSC (ESC ] .. BEL or
-# ESC backslash), and plain escape sequences (ESC + intermediates 0x20..0x2F
-# + final 0x30..0x7E). Note the final-byte range covers every ASCII letter:
-# ESC followed by a letter is a real two-byte sequence a terminal would
-# consume — exactly what a terminal shows is what survives here. The 8-bit
-# C1 CSI (0x9B) is deliberately not parsed: it collides with UTF-8
+# Recognized sequence classes (ECMA-48 §5.3/§5.4/§5.6; real-world
+# three-byte forms per RFC 1468): CSI (ESC [ .. final 0x40..0x7E); the
+# command strings — OSC (ESC ] .. BEL or ST) and DCS/SOS/PM/APC
+# (ESC P/X/^/_ .. ST, where BEL is payload, not a terminator); and plain
+# escape sequences (ESC + intermediates 0x20..0x2F + final 0x30..0x7E).
+# Note the final-byte range covers every ASCII letter: ESC followed by a
+# letter is a real two-byte sequence a terminal would consume — exactly
+# what a terminal shows is what survives here. The 8-bit C1 forms (0x9B
+# CSI, 0x9C ST, ...) are deliberately not parsed: they collide with UTF-8
 # continuation bytes (references/README.md, consequence #3). A dangling ESC
 # — at the end of input, or before a byte that opens no sequence (controls,
 # DEL, non-ASCII) — is preserved verbatim and counts as one column.
@@ -32,6 +34,7 @@ from color._internal.sgr import (
     is_csi_intermediate,
     is_csi_parameter,
     is_escape_final,
+    is_string_introducer,
 )
 
 
@@ -157,17 +160,13 @@ def _skip_escape_sequence(bytes: Span[UInt8, _], start: Int) -> Int:
         return index
 
     if introducer == RIGHT_BRACKET:
-        # OSC: terminated by BEL or by ST (ESC backslash).
-        var index = start + 2
-        while index < length:
-            if bytes[index] == BELL:
-                return index + 1
-            if bytes[index] == ESCAPE:
-                if index + 1 < length and bytes[index + 1] == BACKSLASH:
-                    return index + 2
-                return index  # a new sequence begins; stop consuming here
-            index += 1
-        return length
+        # OSC: terminated by BEL (xterm practice) or by ST (ESC backslash).
+        return _skip_command_string[bel_terminates=True](bytes, start)
+
+    if is_string_introducer(introducer):
+        # DCS, SOS, PM, APC (ECMA-48 §5.6): a command string terminated by
+        # ST only — BEL is payload inside these, not a terminator.
+        return _skip_command_string[bel_terminates=False](bytes, start)
 
     if is_csi_intermediate(introducer):
         # Plain escape sequence with intermediates: ESC 0x20..0x2F .. final.
@@ -185,6 +184,30 @@ def _skip_escape_sequence(bytes: Span[UInt8, _], start: Int) -> Int:
         return start + 2
 
     return start
+
+
+@always_inline
+def _skip_command_string[
+    bel_terminates: Bool
+](bytes: Span[UInt8, _], start: Int) -> Int:
+    """Index just past a command string opened at `bytes[start] == ESC`
+    (OSC, DCS, SOS, PM, APC): the payload runs to ST (ESC backslash) — or
+    to BEL when `bel_terminates`, the xterm OSC convention. A bare ESC ends
+    the string so the next sequence is processed normally; an unterminated
+    string consumes to the end of input. The terminator set is a comptime
+    parameter so each caller compiles to a branch-free-per-byte loop."""
+    var length = len(bytes)
+    var index = start + 2
+    while index < length:
+        comptime if bel_terminates:
+            if bytes[index] == BELL:
+                return index + 1
+        if bytes[index] == ESCAPE:
+            if index + 1 < length and bytes[index + 1] == BACKSLASH:
+                return index + 2
+            return index  # a new sequence begins; stop consuming here
+        index += 1
+    return length
 
 
 @always_inline

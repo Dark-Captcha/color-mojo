@@ -76,6 +76,7 @@ struct Color(Comparable, Copyable, Movable, TrivialRegisterPassable):
 
     # --- Capability ----------------------------------------------------------
 
+    @always_inline
     def downgrade_to(self, level: ColorLevel) -> Color:
         """The nearest color renderable at `level`. Identity at or above this
         color's own tier; `NONE` is a rendering decision, not a color

@@ -2,6 +2,28 @@
 
 All notable changes to color-mojo. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer once 1.0.0 lands.
 
+## [Unreleased]
+
+### Added
+
+- `ColorLevel.resolve(*, is_tty, no_color, force_color, clicolor, clicolor_force, colorterm, term)` — the same standards-honoring ladder as before, as a pure function of explicitly supplied signals. Deterministic, unit-testable without touching the process (the test suite no longer calls `setenv` at all), and comptime-evaluable for build-time-fixed deployments. The application gathers the signals — `std.os.getenv` / `std.os.isatty`, a config file, CLI flags — and the README shows the one-liner wiring.
+- `strip_escapes` / `visible_width` now consume ECMA-48 §5.6 command strings — DCS (`ESC P`), SOS (`ESC X`), PM (`ESC ^`), APC (`ESC _`) — to their `ST` terminator, exactly as a terminal does. Previously only the two opening bytes were removed, so sixel data or tmux passthrough payloads leaked into "visible" output. BEL remains a terminator for OSC only.
+- Resolution honors `clicolor="0"` (disables unless a force flag is set) and numeric `force_color` levels: `1`/`2`/`3` floor the tier at ANSI16/ANSI256/truecolor — supports-color semantics, so a richer `colorterm`/`term` announcement still wins, and `term="dumb"` still vetoes everything.
+
+### Changed
+
+- Rendering is one pass: the SGR open sequence is assembled once into a comptime-bounded stack buffer that both sizes and fills the output — `paint` keeps its single exact-length allocation, and `paint_into` now allocates nothing at all.
+- The render chain is `@always_inline` end to end: a compile-time-constant style (every sugar method) folds its emission into a few byte stores, and a held style hoists its downgrade and open sequence out of the caller's loop. Measured medians: named paint ~25 → ~8 ns, RGB downgraded through a `Painter` ~30 → ~8 ns (PERF.md).
+- `ansi256_to_named16` reads a 256-byte table built in the compile-time interpreter instead of searching sixteen candidates per call — verified byte-identical by the 5,832-point differential sweep.
+
+### Removed
+
+- **All process-environment access.** The library is now pure: no `getenv`, no `isatty`, no global state — a library-side probe couples every caller to ambient process state and can contradict the host application's own configuration. `Painter.detect(fd)` and the thirteen module-level one-liners (`red` … `strikethrough`), whose whole purpose was the per-call probe, are gone. The public surface is seven names.
+
+### Fixed
+
+- `FORCE_COLOR=false` now disables color like `FORCE_COLOR=0`; previously any non-`0` value — including `false` — forced color on.
+
 ## [0.1.0] — 2026-07-02
 
 First release — a ground-up library, written new. An earlier unreleased prototype was retired before this release; the comparison section below references it where the difference is instructive.

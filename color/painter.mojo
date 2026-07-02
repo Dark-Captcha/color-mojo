@@ -4,19 +4,19 @@
 # Painter downgrades the declaration to the destination's tier and paints.
 # At NONE everything renders as plain text — attributes included.
 #
-# The module-level functions at the bottom are minute-one sugar: each call
-# probes the environment once (`Painter.detect()`), which is correct and
-# convenient for scripts. Hot paths and libraries hold a Painter instead.
+# A Painter is built from a tier the application already holds — `plain()`
+# or `from_level(level)`, typically `ColorLevel.resolve(...)` over signals
+# the application gathered. Nothing here reads the process environment.
 
 from color.color import Color
-from color.color_level import ColorLevel, _detect_level
+from color.color_level import ColorLevel
 from color.style import Style
 
 
 struct Painter(Copyable, Movable, TrivialRegisterPassable):
-    """Capability-honest renderer for one destination. Build with `detect`
-    (environment + TTY probe), `plain` (never any escapes), or `from_level`
-    (injected tier — tests, configuration, forced modes)."""
+    """Capability-honest renderer for one destination. Build with `plain`
+    (never any escapes) or `from_level` (an injected tier — resolved
+    signals, configuration, tests, forced modes)."""
 
     var _level: ColorLevel
 
@@ -25,12 +25,6 @@ struct Painter(Copyable, Movable, TrivialRegisterPassable):
         self._level = level
 
     # --- Constructors ---------------------------------------------------------
-
-    @staticmethod
-    def detect(fd: Int = 1) -> Painter:
-        """Probe the capability of file descriptor `fd` — default 1, stdout,
-        where `print` goes. Probe once at startup and keep the Painter."""
-        return Painter(level=_detect_level(fd))
 
     @staticmethod
     @always_inline
@@ -57,21 +51,30 @@ struct Painter(Copyable, Movable, TrivialRegisterPassable):
 
     # --- Rendering ------------------------------------------------------------
 
+    @always_inline
     def paint(self, style: Style, text: String) -> String:
         """Render `style` downgraded to this destination's tier. Plain text
         at `NONE`; colors walk down the ladder, never disappear."""
         if not self._level.is_enabled():
             return text.copy()
+        if self._level == ColorLevel.TRUECOLOR:
+            # downgrade_to is the identity at the top tier — skip the rebuild.
+            return style.paint(text)
         return self._downgraded(style).paint(text)
 
+    @always_inline
     def paint_into[W: Writer](self, mut writer: W, style: Style, text: String):
         """`paint`, streamed into `writer` — the text body is never copied
-        into an intermediate String."""
+        into an intermediate String, and nothing is allocated."""
         if not self._level.is_enabled():
             writer.write(text)
             return
+        if self._level == ColorLevel.TRUECOLOR:
+            style.paint_into(writer, text)
+            return
         self._downgraded(style).paint_into(writer, text)
 
+    @always_inline
     def _downgraded(self, style: Style) -> Style:
         var foreground: Optional[Color] = None
         if style._foreground:
@@ -189,62 +192,3 @@ struct Painter(Copyable, Movable, TrivialRegisterPassable):
     @always_inline
     def strikethrough(self, text: String) -> String:
         return self.paint(Style().strikethrough(), text)
-
-
-# --- Minute-one sugar -----------------------------------------------------------
-#
-# Each function probes the destination per call — correct everywhere,
-# convenient for scripts, and one environment probe of cost. Libraries and
-# hot paths hold a Painter.
-
-
-def black(text: String) -> String:
-    return Painter.detect().black(text)
-
-
-def red(text: String) -> String:
-    return Painter.detect().red(text)
-
-
-def green(text: String) -> String:
-    return Painter.detect().green(text)
-
-
-def yellow(text: String) -> String:
-    return Painter.detect().yellow(text)
-
-
-def blue(text: String) -> String:
-    return Painter.detect().blue(text)
-
-
-def magenta(text: String) -> String:
-    return Painter.detect().magenta(text)
-
-
-def cyan(text: String) -> String:
-    return Painter.detect().cyan(text)
-
-
-def white(text: String) -> String:
-    return Painter.detect().white(text)
-
-
-def bold(text: String) -> String:
-    return Painter.detect().bold(text)
-
-
-def dim(text: String) -> String:
-    return Painter.detect().dim(text)
-
-
-def italic(text: String) -> String:
-    return Painter.detect().italic(text)
-
-
-def underline(text: String) -> String:
-    return Painter.detect().underline(text)
-
-
-def strikethrough(text: String) -> String:
-    return Painter.detect().strikethrough(text)

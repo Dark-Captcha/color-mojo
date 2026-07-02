@@ -9,6 +9,11 @@
 # 55 + 40*i for i >= 1); 232..255 form a 24-step gray ramp at 8 + 10*k.
 # Named-16 targets use xterm's default palette values.
 #
+# The 256-to-16 direction is a comptime-built table: the full
+# decode-and-search runs once, in the compile-time interpreter, and ships
+# as 256 bytes of rodata — one indexed read per call at runtime
+# (.probe/probe_comptime_table.mojo).
+#
 # Differential-tested against .probe/quantize_reference.py.
 
 
@@ -38,6 +43,7 @@ def _squared_distance(
     return dr * dr + dg * dg + db * db
 
 
+@always_inline
 def rgb_to_ansi256(red: Int, green: Int, blue: Int) -> UInt8:
     """Nearest xterm-256 index for an RGB triple — the better of the closest
     cube entry and the closest gray-ramp entry."""
@@ -70,22 +76,32 @@ def rgb_to_ansi256(red: Int, green: Int, blue: Int) -> UInt8:
     return UInt8(cube_index)
 
 
+@always_inline
 def ansi256_to_named16(index: UInt8) -> UInt8:
-    """Nearest named-16 index (0..15) for an xterm-256 index. Indexes below
-    16 map to themselves."""
-    if index < UInt8(16):
-        return index
+    """Nearest named-16 index (0..15) for an xterm-256 index — one read from
+    the comptime-built table. Indexes below 16 map to themselves."""
+    return _NAMED16_OF_ANSI256[Int(index)]
+
+
+# --- Comptime table construction (runs in the compile-time interpreter) --------
+
+
+def _nearest_named16(index: Int) -> UInt8:
+    """Nearest named-16 index for xterm-256 `index`, by decode and full
+    16-candidate search. Comptime-only: runtime lookups read the table."""
+    if index < 16:
+        return UInt8(index)
 
     var red: Int
     var green: Int
     var blue: Int
-    if index < UInt8(232):
-        var cube = Int(index) - 16
+    if index < 232:
+        var cube = index - 16
         red = _cube_component_level(cube // 36)
         green = _cube_component_level((cube % 36) // 6)
         blue = _cube_component_level(cube % 6)
     else:
-        var gray = (Int(index) - 232) * 10 + 8
+        var gray = (index - 232) * 10 + 8
         red = gray
         green = gray
         blue = gray
@@ -98,6 +114,16 @@ def ansi256_to_named16(index: UInt8) -> UInt8:
             best = candidate
             best_distance = distance
     return UInt8(best)
+
+
+def _build_named16_table() -> InlineArray[UInt8, 256]:
+    var table = InlineArray[UInt8, 256](uninitialized=True)
+    for index in range(256):
+        table[index] = _nearest_named16(index)
+    return table
+
+
+comptime _NAMED16_OF_ANSI256: InlineArray[UInt8, 256] = _build_named16_table()
 
 
 @always_inline

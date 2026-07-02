@@ -16,6 +16,13 @@ comptime SGR_FINAL: UInt8 = UInt8(ord("m"))
 comptime BELL: UInt8 = UInt8(0x07)
 comptime BACKSLASH: UInt8 = UInt8(ord("\\"))
 
+# Second bytes of the 7-bit command-string openers other than OSC,
+# ECMA-48 §5.6: their payloads run to ST (ESC backslash).
+comptime DCS_INTRODUCER: UInt8 = UInt8(ord("P"))
+comptime SOS_INTRODUCER: UInt8 = UInt8(ord("X"))
+comptime PM_INTRODUCER: UInt8 = UInt8(ord("^"))
+comptime APC_INTRODUCER: UInt8 = UInt8(ord("_"))
+
 comptime RESET_SEQUENCE: StaticString = "\x1b[0m"
 
 # One ASCII digit per attribute bit position: bit i renders as SGR code
@@ -46,3 +53,16 @@ def is_csi_final(byte: UInt8) -> Bool:
 def is_escape_final(byte: UInt8) -> Bool:
     """Final byte of a non-CSI escape sequence, ECMA-48 §5.3: 0x30..0x7E."""
     return byte >= UInt8(0x30) and byte <= UInt8(0x7E)
+
+
+@always_inline
+def is_string_introducer(byte: UInt8) -> Bool:
+    """Second byte of a command-string opener other than OSC, ECMA-48 §5.6:
+    DCS (`ESC P`), SOS (`ESC X`), PM (`ESC ^`), APC (`ESC _`). OSC stands
+    apart because BEL also terminates it in practice; these end at ST only."""
+    return (
+        byte == DCS_INTRODUCER
+        or byte == SOS_INTRODUCER
+        or byte == PM_INTRODUCER
+        or byte == APC_INTRODUCER
+    )

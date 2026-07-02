@@ -1,11 +1,10 @@
 # benchmarks/run_benchmarks.mojo — latency for color-mojo's hot paths.
 # Run: pixi run benchmark. Protocol: N calls per path, ns/call reported,
-# median of three runs recorded in PERF.md. Every environment-sensitive
-# bench sets its own complete environment context immediately before
-# measuring (the same policy as the test suite) — nothing is set globally,
-# so each number describes exactly the path its label names.
+# median of nine runs recorded in PERF.md. Nothing here touches the process
+# environment — every input is held explicitly, the same purity contract as
+# the library itself — so each number describes exactly the path its label
+# names.
 
-from std.os import setenv
 from std.time import perf_counter_ns
 
 from color import (
@@ -13,7 +12,6 @@ from color import (
     ColorLevel,
     Painter,
     Style,
-    red,
     strip_escapes,
     visible_width,
 )
@@ -65,6 +63,17 @@ def bench_painter_downgrade() raises:
     _report("Painter.paint rgb->256     ", start, stop, sink.byte_length())
 
 
+def bench_painter_downgrade16() raises:
+    var painter = Painter.from_level(ColorLevel.ANSI16)
+    var style = Style().foreground(Color.rgb(red=255, green=100, blue=0))
+    var sink = String("")
+    var start = perf_counter_ns()
+    for _ in range(N):
+        sink = painter.paint(style, "rgb")
+    var stop = perf_counter_ns()
+    _report("Painter.paint rgb->16      ", start, stop, sink.byte_length())
+
+
 def bench_painter_plain() raises:
     var painter = Painter.plain()
     var style = Style().foreground(Color.rgb(red=255, green=100, blue=0))
@@ -88,33 +97,32 @@ def bench_paint_into() raises:
     _report("Style.paint_into fresh sink", start, stop, guard)
 
 
-def bench_module_sugar_disabled() raises:
-    # Context: NO_COLOR set — measures the sugar's shortest disable path.
-    _ = setenv("NO_COLOR", "1", overwrite=True)
-    var sink = String("")
+def bench_resolve() raises:
+    # True per-call cost: flip one byte of colorterm per iteration
+    # ("truecolor" resolves TRUECOLOR, "uruecolor" falls through to TERM),
+    # so the pure call cannot hoist and both outcome paths execute. With
+    # held signals the optimizer removes the loop-invariant call entirely,
+    # and comptime signals bake the tier into the binary (PERF.md).
+    var colorterm = String("truecolor")
+    var term = String("xterm")
+    var empty = String("")
+    var pointer = colorterm.unsafe_ptr_mut()
+    var tiers = 0
     var start = perf_counter_ns()
-    for _ in range(N):
-        sink = red("x")
+    for iteration in range(N):
+        pointer[0] = UInt8(ord("t")) + UInt8(iteration & 1)
+        var level = ColorLevel.resolve(
+            is_tty=True,
+            no_color=empty,
+            force_color=empty,
+            clicolor=empty,
+            clicolor_force=empty,
+            colorterm=colorterm,
+            term=term,
+        )
+        tiers += 3 if level == ColorLevel.TRUECOLOR else 1
     var stop = perf_counter_ns()
-    _report("red() with NO_COLOR        ", start, stop, sink.byte_length())
-
-
-def bench_detect() raises:
-    # Context: forced ladder — NO_COLOR unset, CLICOLOR_FORCE on, plain
-    # TERM. Walks four getenv calls and skips only the TTY probe, which
-    # cannot be exercised deterministically under a piped runner.
-    _ = setenv("NO_COLOR", "", overwrite=True)
-    _ = setenv("FORCE_COLOR", "", overwrite=True)
-    _ = setenv("CLICOLOR_FORCE", "1", overwrite=True)
-    _ = setenv("COLORTERM", "", overwrite=True)
-    _ = setenv("TERM", "xterm", overwrite=True)
-    var enabled = 0
-    var start = perf_counter_ns()
-    for _ in range(N):
-        if Painter.detect().is_enabled():
-            enabled += 1
-    var stop = perf_counter_ns()
-    _report("Painter.detect forced      ", start, stop, enabled)
+    _report("ColorLevel.resolve changing", start, stop, tiers)
 
 
 def bench_strip_short() raises:
@@ -172,10 +180,10 @@ def main() raises:
     bench_style_combined()
     bench_style_rgb()
     bench_painter_downgrade()
+    bench_painter_downgrade16()
     bench_painter_plain()
     bench_paint_into()
-    bench_module_sugar_disabled()
-    bench_detect()
+    bench_resolve()
     bench_strip_short()
     bench_strip_long()
     bench_visible_width()

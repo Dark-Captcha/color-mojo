@@ -4,11 +4,9 @@
 # named functions do not coerce to function-type parameters in this toolchain
 # (.probe/SYNTAX.md, finding 8).
 
-from std.os import setenv
-
 from color import Painter as PublicPainter
 from color import strip_escapes as public_strip_escapes
-from color._internal.decimal import DIGIT_PAIRS, decimal_length, write_decimal
+from color._internal.decimal import DIGIT_PAIRS, write_decimal
 from color._internal.quantize import ansi256_to_named16, rgb_to_ansi256
 from color._internal.sgr import (
     ATTRIBUTE_CODES,
@@ -19,8 +17,8 @@ from color._internal.sgr import (
 )
 from color.attribute import Attribute
 from color.color import Color
-from color.color_level import ColorLevel, _detect_level, _is_forcing
-from color.painter import Painter, red
+from color.color_level import ColorLevel, _is_forcing
+from color.painter import Painter
 from color.style import Style
 from color.visible import strip_escapes, visible_width
 
@@ -53,21 +51,13 @@ def test_sgr_byte_classes_match_ecma48() raises:
 # --- _internal/decimal -------------------------------------------------------
 
 
-def test_decimal_length_boundaries() raises:
-    _assert(decimal_length(0) == 1, "0 is one digit")
-    _assert(decimal_length(9) == 1, "9 is one digit")
-    _assert(decimal_length(10) == 2, "10 is two digits")
-    _assert(decimal_length(99) == 2, "99 is two digits")
-    _assert(decimal_length(100) == 3, "100 is three digits")
-    _assert(decimal_length(255) == 3, "255 is three digits")
-
-
 def test_write_decimal_fills_exactly() raises:
-    var text = String(unsafe_uninit_length=6)
-    var offset = write_decimal(text, 0, 0)
-    offset = write_decimal(text, offset, 42)
-    offset = write_decimal(text, offset, 108)
+    var buffer = InlineArray[UInt8, 8](uninitialized=True)
+    var offset = write_decimal(buffer, 0, 0)
+    offset = write_decimal(buffer, offset, 42)
+    offset = write_decimal(buffer, offset, 108)
     _assert(offset == 6, "offsets advance by digit count")
+    var text = StringSlice(unsafe_from_utf8=Span(buffer)[0:offset])
     _assert(text == "042108", "digits placed exactly")
 
 
@@ -119,10 +109,10 @@ def test_ansi256_to_named16_reference_vectors() raises:
 
 # --- color_level -------------------------------------------------------------
 #
-# Detection tests set their complete environment context explicitly (an empty
-# value reads as unset), so results never depend on the runner's own TTY or
-# inherited variables. Tests that mutate the environment do not clean up —
-# every environment-sensitive test states its own full context.
+# Resolution is a pure function: every case passes its complete signal set
+# explicitly (an empty string reads as unset) and nothing touches the process
+# environment, so cases cannot interact. The TTY gate is testable directly —
+# an environment-probing design never allowed that under a piped runner.
 
 
 def test_color_level_ordering() raises:
@@ -134,64 +124,185 @@ def test_color_level_ordering() raises:
     _assert(ColorLevel.ANSI16.is_enabled(), "ANSI16 is enabled")
 
 
-def test_detection_no_color_always_wins() raises:
-    _ = setenv("NO_COLOR", "1", overwrite=True)
-    _ = setenv("FORCE_COLOR", "1", overwrite=True)
-    _ = setenv("COLORTERM", "truecolor", overwrite=True)
-    _assert(_detect_level(1) == ColorLevel.NONE, "NO_COLOR beats everything")
+def test_resolve_no_color_always_wins() raises:
+    _assert(
+        ColorLevel.resolve(
+            is_tty=True,
+            no_color="1",
+            force_color="1",
+            colorterm="truecolor",
+            term="xterm",
+        )
+        == ColorLevel.NONE,
+        "no_color beats everything",
+    )
 
 
-def test_detection_forced_ladder() raises:
-    _ = setenv("NO_COLOR", "", overwrite=True)
-    _ = setenv("FORCE_COLOR", "1", overwrite=True)
-    _ = setenv("CLICOLOR_FORCE", "", overwrite=True)
-
-    _ = setenv("COLORTERM", "truecolor", overwrite=True)
-    _ = setenv("TERM", "xterm", overwrite=True)
-    _assert(_detect_level(1) == ColorLevel.TRUECOLOR, "COLORTERM truecolor")
-
-    _ = setenv("COLORTERM", "24bit", overwrite=True)
-    _assert(_detect_level(1) == ColorLevel.TRUECOLOR, "COLORTERM 24bit")
-
-    _ = setenv("COLORTERM", "", overwrite=True)
-    _ = setenv("TERM", "xterm-256color", overwrite=True)
-    _assert(_detect_level(1) == ColorLevel.ANSI256, "TERM 256color suffix")
-
-    _ = setenv("TERM", "dumb", overwrite=True)
-    _assert(_detect_level(1) == ColorLevel.NONE, "dumb cannot be forced")
-
-    _ = setenv("TERM", "xterm", overwrite=True)
-    _assert(_detect_level(1) == ColorLevel.ANSI16, "plain terminal name")
-
-    _ = setenv("TERM", "", overwrite=True)
-    _assert(_detect_level(1) == ColorLevel.ANSI16, "forced with no TERM")
+def test_resolve_tty_gate() raises:
+    _assert(
+        ColorLevel.resolve(is_tty=True, term="xterm") == ColorLevel.ANSI16,
+        "a TTY with a plain terminal name gets ANSI16",
+    )
+    _assert(
+        ColorLevel.resolve(is_tty=False, term="xterm") == ColorLevel.NONE,
+        "a non-TTY destination stays plain",
+    )
+    _assert(
+        ColorLevel.resolve(is_tty=True) == ColorLevel.NONE,
+        "a TTY with no terminal identity stays plain",
+    )
+    _assert(
+        ColorLevel.resolve(is_tty=True, term="xterm-256color")
+        == ColorLevel.ANSI256,
+        "a TTY announcing 256color gets ANSI256",
+    )
 
 
-def test_detection_zero_never_forces() raises:
+def test_resolve_forced_ladder() raises:
+    # is_tty=False throughout: a force flag must skip the TTY gate.
+    _assert(
+        ColorLevel.resolve(
+            is_tty=False,
+            force_color="1",
+            colorterm="truecolor",
+            term="xterm",
+        )
+        == ColorLevel.TRUECOLOR,
+        "colorterm truecolor",
+    )
+    _assert(
+        ColorLevel.resolve(
+            is_tty=False, force_color="1", colorterm="24bit", term="xterm"
+        )
+        == ColorLevel.TRUECOLOR,
+        "colorterm 24bit",
+    )
+    _assert(
+        ColorLevel.resolve(is_tty=False, force_color="1", term="xterm-256color")
+        == ColorLevel.ANSI256,
+        "term 256color suffix",
+    )
+    _assert(
+        ColorLevel.resolve(is_tty=False, force_color="1", term="dumb")
+        == ColorLevel.NONE,
+        "dumb cannot be forced",
+    )
+    _assert(
+        ColorLevel.resolve(is_tty=False, force_color="1", term="xterm")
+        == ColorLevel.ANSI16,
+        "plain terminal name",
+    )
+    _assert(
+        ColorLevel.resolve(is_tty=False, force_color="1") == ColorLevel.ANSI16,
+        "forced with no term",
+    )
+
+
+def test_resolve_zero_never_forces() raises:
     _assert(not _is_forcing("0"), "the conventional off value never forces")
     _assert(not _is_forcing(""), "unset never forces")
     _assert(_is_forcing("1"), "any other value forces")
     _assert(_is_forcing("true"), "any other value forces")
 
-    # FORCE_COLOR=0 is the convention's explicit disable — NONE before the
-    # TTY gate, deterministically.
-    _ = setenv("NO_COLOR", "", overwrite=True)
-    _ = setenv("FORCE_COLOR", "0", overwrite=True)
-    _ = setenv("CLICOLOR_FORCE", "", overwrite=True)
-    _ = setenv("COLORTERM", "truecolor", overwrite=True)
-    _ = setenv("TERM", "xterm", overwrite=True)
-    _assert(_detect_level(1) == ColorLevel.NONE, "FORCE_COLOR=0 disables")
-
-
-def test_detection_dumb_outranks_colorterm() raises:
-    _ = setenv("NO_COLOR", "", overwrite=True)
-    _ = setenv("FORCE_COLOR", "1", overwrite=True)
-    _ = setenv("CLICOLOR_FORCE", "", overwrite=True)
-    _ = setenv("COLORTERM", "truecolor", overwrite=True)
-    _ = setenv("TERM", "dumb", overwrite=True)
+    # force_color="0" is the convention's explicit disable — NONE before
+    # the TTY gate is even consulted.
     _assert(
-        _detect_level(1) == ColorLevel.NONE,
-        "an inherited COLORTERM cannot rescue a dumb terminal",
+        ColorLevel.resolve(
+            is_tty=True,
+            force_color="0",
+            colorterm="truecolor",
+            term="xterm",
+        )
+        == ColorLevel.NONE,
+        "force_color=0 disables",
+    )
+
+
+def test_resolve_dumb_outranks_colorterm() raises:
+    _assert(
+        ColorLevel.resolve(
+            is_tty=True,
+            force_color="1",
+            colorterm="truecolor",
+            term="dumb",
+        )
+        == ColorLevel.NONE,
+        "an inherited colorterm cannot rescue a dumb terminal",
+    )
+
+
+def test_resolve_clicolor_zero_disables() raises:
+    _assert(
+        ColorLevel.resolve(
+            is_tty=True,
+            clicolor="0",
+            colorterm="truecolor",
+            term="xterm",
+        )
+        == ColorLevel.NONE,
+        "clicolor=0 disables when nothing forces",
+    )
+    _assert(
+        ColorLevel.resolve(
+            is_tty=True,
+            clicolor="0",
+            clicolor_force="1",
+            colorterm="truecolor",
+            term="xterm",
+        )
+        == ColorLevel.TRUECOLOR,
+        "a force flag outranks clicolor=0",
+    )
+
+
+def test_resolve_force_color_false_disables() raises:
+    _assert(
+        ColorLevel.resolve(
+            is_tty=True,
+            force_color="false",
+            clicolor_force="1",
+            colorterm="truecolor",
+            term="xterm",
+        )
+        == ColorLevel.NONE,
+        "force_color=false disables, even against another force flag",
+    )
+
+
+def test_resolve_force_color_numeric_floors() raises:
+    _assert(
+        ColorLevel.resolve(is_tty=False, force_color="2") == ColorLevel.ANSI256,
+        "2 floors 256, no term",
+    )
+    _assert(
+        ColorLevel.resolve(is_tty=False, force_color="2", term="xterm")
+        == ColorLevel.ANSI256,
+        "2 outranks a plain term",
+    )
+    _assert(
+        ColorLevel.resolve(is_tty=False, force_color="3", term="xterm")
+        == ColorLevel.TRUECOLOR,
+        "3 floors truecolor",
+    )
+    _assert(
+        ColorLevel.resolve(is_tty=False, force_color="3", term="dumb")
+        == ColorLevel.NONE,
+        "dumb outranks numeric force",
+    )
+    _assert(
+        ColorLevel.resolve(
+            is_tty=False,
+            force_color="2",
+            colorterm="truecolor",
+            term="xterm",
+        )
+        == ColorLevel.TRUECOLOR,
+        "a floor is never a ceiling — colorterm still wins",
+    )
+    _assert(
+        ColorLevel.resolve(is_tty=False, force_color="1", term="xterm-256color")
+        == ColorLevel.ANSI256,
+        "announcements above the floor still count",
     )
 
 
@@ -436,21 +547,21 @@ def test_painter_paint_into_matches_paint() raises:
     _assert(plain_sink == "orange", "plain painter streams text through")
 
 
-def test_painter_detect_honors_forced_environment() raises:
-    _ = setenv("NO_COLOR", "", overwrite=True)
-    _ = setenv("FORCE_COLOR", "1", overwrite=True)
-    _ = setenv("CLICOLOR_FORCE", "", overwrite=True)
-    _ = setenv("COLORTERM", "truecolor", overwrite=True)
-    _ = setenv("TERM", "xterm", overwrite=True)
-    _assert(
-        Painter.detect().level() == ColorLevel.TRUECOLOR,
-        "detect follows the forced ladder",
+def test_painter_composes_with_resolve() raises:
+    # The intended wiring: the application resolves signals it gathered,
+    # the Painter carries the tier — no environment access anywhere.
+    var level = ColorLevel.resolve(
+        is_tty=True, colorterm="truecolor", term="xterm"
     )
-
-
-def test_module_sugar_respects_no_color() raises:
-    _ = setenv("NO_COLOR", "1", overwrite=True)
-    _assert(red("x") == "x", "module-level red is plain under NO_COLOR")
+    var painter = Painter.from_level(level)
+    _assert(painter.level() == ColorLevel.TRUECOLOR, "resolved tier carried")
+    _assert(
+        Painter.from_level(
+            ColorLevel.resolve(is_tty=True, no_color="1", term="xterm")
+        ).red("x")
+        == "x",
+        "a no_color resolution renders plain",
+    )
 
 
 # --- visible -----------------------------------------------------------------
@@ -561,6 +672,54 @@ def test_strip_escapes_osc_interrupted_by_new_sequence() raises:
     )
 
 
+def test_strip_escapes_removes_string_commands() raises:
+    # DCS, SOS, PM, APC (ECMA-48 §5.6): the payload runs to ST and never
+    # reaches the reader — a terminal consumes the whole command string.
+    _assert(
+        strip_escapes("\x1bPq#0;1;0;0\x1b\\after") == "after",
+        "DCS payload is consumed to ST",
+    )
+    _assert(
+        strip_escapes("\x1bXhidden\x1b\\after") == "after",
+        "SOS payload is consumed to ST",
+    )
+    _assert(
+        strip_escapes("\x1b^hidden\x1b\\after") == "after",
+        "PM payload is consumed to ST",
+    )
+    _assert(
+        strip_escapes("\x1b_hidden\x1b\\after") == "after",
+        "APC payload is consumed to ST",
+    )
+    _assert(
+        visible_width("\x1bPq#0;1;0;0\x1b\\after") == 5,
+        "DCS payload has no width",
+    )
+
+
+def test_strip_escapes_string_command_bel_is_payload() raises:
+    # BEL terminates OSC (xterm practice) but is data inside the others.
+    _assert(
+        strip_escapes("\x1bPdata\x07more\x1b\\after") == "after",
+        "BEL does not terminate a DCS string",
+    )
+    _assert(
+        strip_escapes("\x1b]0;title\x07after") == "after",
+        "BEL still terminates OSC",
+    )
+
+
+def test_strip_escapes_string_command_edges() raises:
+    _assert(
+        strip_escapes("a\x1bPlost") == "a",
+        "unterminated DCS consumes to end",
+    )
+    _assert(
+        strip_escapes("\x1bXdata\x1b[31mred\x1b[0m") == "red",
+        "an inner CSI ends the string scan and is parsed itself",
+    )
+
+
 def test_from_hex_rejects_multibyte_six_byte_input() raises:
     var rejected = 0
     try:
@@ -607,13 +766,6 @@ def main() raises:
         failures += 1
 
     try:
-        test_decimal_length_boundaries()
-        print("  PASS test_decimal_length_boundaries")
-    except error:
-        print("  FAIL test_decimal_length_boundaries:", String(error))
-        failures += 1
-
-    try:
         test_write_decimal_fills_exactly()
         print("  PASS test_write_decimal_fills_exactly")
     except error:
@@ -651,31 +803,59 @@ def main() raises:
         failures += 1
 
     try:
-        test_detection_no_color_always_wins()
-        print("  PASS test_detection_no_color_always_wins")
+        test_resolve_no_color_always_wins()
+        print("  PASS test_resolve_no_color_always_wins")
     except error:
-        print("  FAIL test_detection_no_color_always_wins:", String(error))
+        print("  FAIL test_resolve_no_color_always_wins:", String(error))
         failures += 1
 
     try:
-        test_detection_forced_ladder()
-        print("  PASS test_detection_forced_ladder")
+        test_resolve_tty_gate()
+        print("  PASS test_resolve_tty_gate")
     except error:
-        print("  FAIL test_detection_forced_ladder:", String(error))
+        print("  FAIL test_resolve_tty_gate:", String(error))
         failures += 1
 
     try:
-        test_detection_zero_never_forces()
-        print("  PASS test_detection_zero_never_forces")
+        test_resolve_forced_ladder()
+        print("  PASS test_resolve_forced_ladder")
     except error:
-        print("  FAIL test_detection_zero_never_forces:", String(error))
+        print("  FAIL test_resolve_forced_ladder:", String(error))
         failures += 1
 
     try:
-        test_detection_dumb_outranks_colorterm()
-        print("  PASS test_detection_dumb_outranks_colorterm")
+        test_resolve_zero_never_forces()
+        print("  PASS test_resolve_zero_never_forces")
     except error:
-        print("  FAIL test_detection_dumb_outranks_colorterm:", String(error))
+        print("  FAIL test_resolve_zero_never_forces:", String(error))
+        failures += 1
+
+    try:
+        test_resolve_dumb_outranks_colorterm()
+        print("  PASS test_resolve_dumb_outranks_colorterm")
+    except error:
+        print("  FAIL test_resolve_dumb_outranks_colorterm:", String(error))
+        failures += 1
+
+    try:
+        test_resolve_clicolor_zero_disables()
+        print("  PASS test_resolve_clicolor_zero_disables")
+    except error:
+        print("  FAIL test_resolve_clicolor_zero_disables:", String(error))
+        failures += 1
+
+    try:
+        test_resolve_force_color_false_disables()
+        print("  PASS test_resolve_force_color_false_disables")
+    except error:
+        print("  FAIL test_resolve_force_color_false_disables:", String(error))
+        failures += 1
+
+    try:
+        test_resolve_force_color_numeric_floors()
+        print("  PASS test_resolve_force_color_numeric_floors")
+    except error:
+        print("  FAIL test_resolve_force_color_numeric_floors:", String(error))
         failures += 1
 
     try:
@@ -800,20 +980,13 @@ def main() raises:
         failures += 1
 
     try:
-        test_painter_detect_honors_forced_environment()
-        print("  PASS test_painter_detect_honors_forced_environment")
+        test_painter_composes_with_resolve()
+        print("  PASS test_painter_composes_with_resolve")
     except error:
         print(
-            "  FAIL test_painter_detect_honors_forced_environment:",
+            "  FAIL test_painter_composes_with_resolve:",
             String(error),
         )
-        failures += 1
-
-    try:
-        test_module_sugar_respects_no_color()
-        print("  PASS test_module_sugar_respects_no_color")
-    except error:
-        print("  FAIL test_module_sugar_respects_no_color:", String(error))
         failures += 1
 
     try:
@@ -908,6 +1081,32 @@ def main() raises:
             "  FAIL test_strip_escapes_osc_interrupted_by_new_sequence:",
             String(error),
         )
+        failures += 1
+
+    try:
+        test_strip_escapes_removes_string_commands()
+        print("  PASS test_strip_escapes_removes_string_commands")
+    except error:
+        print(
+            "  FAIL test_strip_escapes_removes_string_commands:", String(error)
+        )
+        failures += 1
+
+    try:
+        test_strip_escapes_string_command_bel_is_payload()
+        print("  PASS test_strip_escapes_string_command_bel_is_payload")
+    except error:
+        print(
+            "  FAIL test_strip_escapes_string_command_bel_is_payload:",
+            String(error),
+        )
+        failures += 1
+
+    try:
+        test_strip_escapes_string_command_edges()
+        print("  PASS test_strip_escapes_string_command_edges")
+    except error:
+        print("  FAIL test_strip_escapes_string_command_edges:", String(error))
         failures += 1
 
     try:

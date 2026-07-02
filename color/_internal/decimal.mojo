@@ -21,25 +21,19 @@ comptime DIGIT_PAIRS: StaticString = (
 
 
 @always_inline
-def decimal_length(value: Int) -> Int:
-    """Digit count of `value` in 0..999 — sizes exact-length render buffers."""
-    if value < 10:
-        return 1
-    if value < 100:
-        return 2
-    return 3
+def write_decimal[
+    capacity: Int
+](mut buffer: InlineArray[UInt8, capacity], offset: Int, value: Int) -> Int:
+    """Write `value` (0..999) as ASCII into `buffer` starting at byte
+    `offset`; return the offset just past the last digit. The caller
+    guarantees the digits fit under `capacity` — emission targets a
+    comptime-bounded stack buffer sized for the worst case, so no runtime
+    check is spent here.
 
-
-@always_inline
-def write_decimal(mut text: String, offset: Int, value: Int) -> Int:
-    """Write `value` (0..999) as ASCII into `text` starting at byte `offset`;
-    return the offset just past the last digit. The caller guarantees the
-    string was allocated long enough (`String(unsafe_uninit_length=...)`).
-
-    Taking the `String` directly keeps a concrete pointer origin — passing
-    raw pointers across this boundary would erase the origin, which the
-    compiler deprecates (.probe/SYNTAX.md)."""
-    var pointer = text.unsafe_ptr_mut()
+    Taking the `InlineArray` directly keeps a concrete pointer origin —
+    passing raw pointers across this boundary would erase the origin, which
+    the compiler deprecates (.probe/SYNTAX.md)."""
+    var pointer = buffer.unsafe_ptr()
     var table = DIGIT_PAIRS.as_bytes()
     if value < 10:
         pointer[offset] = UInt8(ord("0")) + UInt8(value)
