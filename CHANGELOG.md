@@ -10,6 +10,7 @@ All notable changes to color-mojo. Format follows [Keep a Changelog](https://kee
 - Dependabot updates for pinned GitHub Actions.
 - Repository instructions for coding agents, aligned with Modular's contribution and AI-assistance policies.
 - Strict public API documentation validation through `pixi run doc`.
+- A rattler-build community-package recipe with an installed-package smoke test.
 
 ### Changed
 

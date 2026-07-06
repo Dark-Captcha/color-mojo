@@ -103,7 +103,7 @@ painter.paint_into(sink, style, "ERROR")    # streams; nothing is allocated
 
 ## Install
 
-Requires Mojo `1.0.0b3` or later. Until a package is published, vendor the `color/` package directory or add this repository as a source dependency; then:
+Requires Mojo `1.0.0b3` or later. A tested modular-community recipe is prepared in `conda.recipe/`; until it can target a stable `1.0.0b3` compiler and is accepted by the channel, vendor the `color/` package directory or add this repository as a source dependency; then:
 
 ```mojo
 from color import Painter, Style, Color
