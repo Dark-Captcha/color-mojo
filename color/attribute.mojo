@@ -10,6 +10,7 @@ struct Attribute(Comparable, Copyable, Movable, TrivialRegisterPassable):
 
     var _bits: UInt8
 
+    @doc_hidden
     @always_inline
     def __init__(out self, *, bits: UInt8):
         self._bits = bits

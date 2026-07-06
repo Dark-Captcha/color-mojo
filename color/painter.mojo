@@ -21,6 +21,7 @@ struct Painter(Copyable, Movable, TrivialRegisterPassable):
 
     var _level: ColorLevel
 
+    @doc_hidden
     @always_inline
     def __init__(out self, *, level: ColorLevel):
         self._level = level

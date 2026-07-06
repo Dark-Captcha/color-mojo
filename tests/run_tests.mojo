@@ -1,11 +1,12 @@
-# tests/run_tests.mojo — single-binary test runner. Each test is a `def` that
-# raises on failure; `main` runs every test in an explicit try/except block
-# and reports PASS/FAIL. Explicit blocks are a probed decision, not a habit:
-# named functions do not coerce to function-type parameters in this toolchain
-# (.probe/SYNTAX.md, finding 8).
+# tests/run_tests.mojo — white-box contract tests for rendering internals and
+# edge cases. The public root-import gate lives in public_surface.mojo. Each
+# test here is a `def` that raises on failure; `main` runs every test in an
+# explicit try/except block and reports PASS/FAIL. Explicit blocks are a
+# probed decision, not a habit: named functions do not coerce to function-type
+# parameters in this toolchain (.probe/SYNTAX.md, finding 8).
 
-from color import Painter as PublicPainter
-from color import strip_escapes as public_strip_escapes
+from color import Attribute, Color, ColorLevel, Painter, Style
+from color import strip_escapes, visible_width
 from color._internal.decimal import DIGIT_PAIRS, write_decimal
 from color._internal.quantize import ansi256_to_named16, rgb_to_ansi256
 from color._internal.sgr import (
@@ -15,12 +16,7 @@ from color._internal.sgr import (
     is_csi_intermediate,
     is_csi_parameter,
 )
-from color.attribute import Attribute
-from color.color import Color
-from color.color_level import ColorLevel, _is_forcing
-from color.painter import Painter
-from color.style import Style
-from color.visible import strip_escapes, visible_width
+from color.color_level import _is_forcing
 
 
 def _assert(condition: Bool, message: String) raises:
@@ -355,6 +351,32 @@ def test_color_value_equality() raises:
     _assert(orange != Color.rgb(red=255, green=100, blue=1), "one channel off")
     _assert(Color.ansi256(196) == Color.ansi256(196), "same index equal")
     _assert(Color.ansi256(1) != Color.RED, "kinds keep values distinct")
+
+
+def test_implementation_constructors_normalize_invalid_states() raises:
+    var bad_named = Color(kind=UInt8(0), a=UInt8(196), b=UInt8(0), c=UInt8(0))
+    _assert(
+        Style().foreground(bad_named).paint("x") == "\x1b[38;5;196mx\x1b[0m",
+        "out-of-range named payload normalizes to ansi256",
+    )
+    _assert(
+        Painter.from_level(ColorLevel.ANSI16).paint(
+            Style().foreground(bad_named), "x"
+        )
+        == "\x1b[91mx\x1b[0m",
+        "normalized color still downgrades through Painter",
+    )
+
+    var bad_kind = Color(kind=UInt8(9), a=UInt8(1), b=UInt8(2), c=UInt8(3))
+    _assert(
+        Style().foreground(bad_kind).paint("x") == "\x1b[38;2;1;2;3mx\x1b[0m",
+        "unknown color kind normalizes to rgb",
+    )
+
+    _assert(
+        ColorLevel(tier=UInt8(99)) == ColorLevel.TRUECOLOR,
+        "out-of-range capability tier clamps to truecolor",
+    )
 
 
 def test_color_from_hex_parses_forms() raises:
@@ -748,12 +770,28 @@ def test_from_hex_rejects_multibyte_six_byte_input() raises:
 
 def test_public_package_surface_resolves() raises:
     _assert(
-        PublicPainter.plain().red("x") == "x",
+        Painter.plain().red("x") == "x",
         "Painter re-exported from the package root",
     )
     _assert(
-        public_strip_escapes("\x1b[31mx\x1b[0m") == "x",
+        Style().foreground(Color.RED).paint("x") == "\x1b[31mx\x1b[0m",
+        "Style and Color re-exported from the package root",
+    )
+    _assert(
+        (Attribute.BOLD | Attribute.UNDERLINE).contains(Attribute.BOLD),
+        "Attribute re-exported from the package root",
+    )
+    _assert(
+        ColorLevel.resolve(is_tty=True, term="xterm") == ColorLevel.ANSI16,
+        "ColorLevel re-exported from the package root",
+    )
+    _assert(
+        strip_escapes("\x1b[31mx\x1b[0m") == "x",
         "strip_escapes re-exported from the package root",
+    )
+    _assert(
+        visible_width("\x1b[31mx\x1b[0m") == 1,
+        "visible_width re-exported from the package root",
     )
 
 
@@ -899,6 +937,18 @@ def main() raises:
         print("  PASS test_color_value_equality")
     except error:
         print("  FAIL test_color_value_equality:", String(error))
+        failures += 1
+
+    try:
+        test_implementation_constructors_normalize_invalid_states()
+        print(
+            "  PASS test_implementation_constructors_normalize_invalid_states"
+        )
+    except error:
+        print(
+            "  FAIL test_implementation_constructors_normalize_invalid_states:",
+            String(error),
+        )
         failures += 1
 
     try:

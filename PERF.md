@@ -1,8 +1,8 @@
 # Performance — color-mojo
 
-> **Version:** 0.2.0 | **Updated:** 2026-07-03
+> **Version:** 0.3.0 | **Updated:** 2026-07-06
 
-Hot-path latency, measured by `pixi run benchmark` (N = 200,000 per path, median of nine runs, x86-64 Linux, Mojo `1.0.0b3.dev2026070123`). Run-to-run spread on this machine is roughly ±10%; treat single-nanosecond differences as noise.
+Hot-path latency, measured by `pixi run benchmark` (N = 200,000 per path, median of nine runs, x86-64 Linux, Mojo `1.0.0b3.dev2026070506`). Run-to-run spread on this machine is roughly ±10%; treat single-nanosecond differences as noise.
 
 ---
 
@@ -15,7 +15,7 @@ Hot-path latency, measured by `pixi run benchmark` (N = 200,000 per path, median
 | `Style.paint` — truecolor RGB           | ~30     | 24-byte output, three channels via the digit-pair table                                           |
 | `Painter.paint` — RGB downgraded to 256 | ~8      | quantization plus paint; a held style's downgrade hoists out of the caller's loop                 |
 | `Painter.paint` — RGB downgraded to 16  | ~8      | adds the comptime 256→16 table read on top of the 256 quantizer                                   |
-| `Painter.paint` — disabled (`NONE`)     | ~0      | short-circuits; the benchmark loop optimizes away                                                 |
+| `Painter.paint` — disabled (`NONE`)     | ~0      | short-circuits before SGR work; this benchmark loop optimizes the plain copy away                  |
 | `Style.paint_into` — fresh String sink  | ~25     | includes constructing the sink each call; the render itself allocates nothing                     |
 | `ColorLevel.resolve` — changing signals | ~3      | the full ladder of String compares when a signal differs every call — the honest per-call ceiling |
 | `strip_escapes` — short painted input   | ~41     | 22 bytes to 5                                                                                     |
@@ -32,7 +32,7 @@ Two vectorization "improvements" were tried and measured slower, so the scalar f
 
 Baseline figures were recorded from the retired prototype before its removal, measured on the same machine against Mojo `1.0.0b3.dev2026061706` — an older nightly and a different day, so treat deltas as indicative rather than exact. This table is the baseline's archival record; the prototype is not reproducible from this repository.
 
-| Path               | Prototype | 0.2.0 | Delta    |
+| Path               | Prototype | 0.3.0 | Delta    |
 | ------------------ | --------- | ----- | -------- |
 | named paint        | 47        | ~8    | **5.9x** |
 | combined paint     | 53        | ~14   | **3.8x** |
@@ -59,7 +59,7 @@ This release also renders strictly more per call than the prototype did: `Painte
 | Two-digit lookup table for SGR parameters                                                                                                                                         | `_internal/decimal.mojo`                 |
 | comptime-built 256→16 nearest-color table — the decode-and-search runs in the compile-time interpreter; runtime is one rodata read                                                | `_internal/quantize.mojo`                |
 | 16-wide SIMD scan for `ESC` on escape-free runs                                                                                                                                   | `visible.mojo`                           |
-| Disabled paths return before touching any machinery                                                                                                                               | `Painter.paint` at `NONE`, empty `Style` |
+| Disabled and empty paths return before touching SGR machinery; `paint_into` streams through without allocation, while `paint` still returns a plain `String` copy                  | `Painter.paint` at `NONE`, empty `Style` |
 | One-byte `Painter` — capability travels in a register                                                                                                                             | every capability-aware call              |
 
 ---

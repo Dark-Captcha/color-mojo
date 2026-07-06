@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Version:** 0.2.0 | **Updated:** 2026-07-03
+> **Version:** 0.3.0 | **Updated:** 2026-07-06
 
 Direction after the 0.1.0 release. Deferred items carry their reason from ARCHITECTURE.md (Scope → Deferred); nothing here is promised for a date. Shipped and refuted items leave this file — CHANGELOG.md records the former, `.probe/SYNTAX.md` the latter.
 

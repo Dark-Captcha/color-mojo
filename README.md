@@ -26,7 +26,7 @@ def main() raises:
 | Automatic reset        | Every paint is self-closing — style bleed is unrepresentable                                                                                                                                                                  |
 | Capability correctness | Resolution honors the conventions (`no_color` > force flags — `0`/`false` disable > `clicolor=0` > TTY > `term=dumb` veto > `force_color` 1/2/3 floors > `colorterm` > `term`); colors downgrade RGB → 256 → 16, never vanish |
 | Text truth             | `strip_escapes` and `visible_width` always agree with what `paint` produced                                                                                                                                                   |
-| Cost discipline        | One exact-length allocation per paint (~8 ns named); zero for `paint_into`; zero when styling is off; no `raises` on the paint chain                                                                                          |
+| Cost discipline        | One exact-length allocation per styled `paint` (~8 ns named); zero allocation for `paint_into`; disabled rendering skips SGR work (`paint` returns a plain copy); no `raises` on the paint chain                              |
 
 Full contracts, non-goals, and the system map: [ARCHITECTURE.md](ARCHITECTURE.md). Numbers: [PERF.md](PERF.md). Byte-level authorities: [references/README.md](references/README.md).
 

@@ -2,6 +2,18 @@
 
 All notable changes to color-mojo. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer once 1.0.0 lands.
 
+## [0.3.0] — 2026-07-06
+
+### Changed
+
+- Development now depends on the full `mojo` Pixi package instead of `mojo-compiler`, matching current Mojo installation guidance and ensuring the standard library is available in fresh environments.
+- Implementation constructors are hidden from generated docs and normalize invalid direct construction into safe internal states.
+- Disabled-path performance wording now distinguishes zero-allocation `paint_into` from string-returning `paint`, which still returns a plain copy.
+
+### Added
+
+- A black-box public-surface test that imports only the seven package-root names from `color`.
+
 ## [0.2.0] — 2026-07-03
 
 ### Added

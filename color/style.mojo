@@ -57,6 +57,7 @@ struct Style(Copyable, Movable):
         self._background = None
         self._attributes = Attribute.NONE
 
+    @doc_hidden
     @always_inline
     def __init__(
         out self,

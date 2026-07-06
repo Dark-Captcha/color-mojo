@@ -27,9 +27,21 @@ struct Color(Comparable, Copyable, Movable, TrivialRegisterPassable):
     var _b: UInt8
     var _c: UInt8
 
+    @doc_hidden
     @always_inline
     def __init__(out self, *, kind: UInt8, a: UInt8, b: UInt8, c: UInt8):
-        self._kind = kind
+        if kind == _KIND_NAMED and a > UInt8(15):
+            # A direct call to the implementation initializer must not create
+            # a named color that renders as an out-of-contract SGR code.
+            self._kind = _KIND_ANSI256
+            self._a = a
+            self._b = UInt8(0)
+            self._c = UInt8(0)
+            return
+        if kind <= _KIND_RGB:
+            self._kind = kind
+        else:
+            self._kind = _KIND_RGB
         self._a = a
         self._b = b
         self._c = c

@@ -1,6 +1,6 @@
 # Architecture — color-mojo
 
-> **Version:** 0.2.0 | **Updated:** 2026-07-03
+> **Version:** 0.3.0 | **Updated:** 2026-07-06
 
 Purpose, binding contracts, scope, public surface, and system map of color-mojo — the criteria every structural decision in this library is judged against.
 
@@ -39,7 +39,7 @@ Everything the library does serves one of these four contracts. Anything that se
 | 1   | Typed styling          | No one hand-writes escape strings. Colors, attributes, and styles are values — invalid sequences are unrepresentable, valid ones compose.                                                                                                                                                                                                                       |
 | 2   | Capability correctness | Never emit what the destination cannot render. Resolution is a pure, standards-honoring function of signals the application supplies — the library never reads the process environment; colors degrade down the capability ladder instead of disappearing or corrupting output. Styled bytes belong only on terminals — everywhere else, text stays plain text. |
 | 3   | Round-trip honesty     | Styled text is still text. Anything the library produces can be stripped back to plain text and measured for its visible width, so layout code, log processors, and tests always know what the reader actually sees.                                                                                                                                            |
-| 4   | Cost discipline        | Styling sits inside the print path of every adopting program, so it must be cheap enough to live there: resolve once from signals the caller already holds, render with minimal allocation, add nothing to the cost of text that ends up unstyled.                                                                                                              |
+| 4   | Cost discipline        | Styling sits inside the print path of every adopting program, so it must be cheap enough to live there: resolve once from signals the caller already holds, render with minimal allocation, and bypass SGR work entirely when text ends up unstyled.                                                                                                          |
 
 **The purpose test:** every proposed feature must name the contract it serves. A feature that names none is out of scope, regardless of how useful it sounds.
 
@@ -108,7 +108,7 @@ Parked for a future release — the design keeps the door open, the current surf
 
 ## Public Surface
 
-Seven names. Everything else lives under `_internal/` and is not part of the contract.
+Seven names. Everything else lives under `_internal/` and is not part of the contract. Mojo internals are convention-scoped rather than access-restricted, so implementation constructors are hidden from generated docs and normalize invalid direct construction into safe states; compatibility belongs to the package-root imports below.
 
 ### Types
 

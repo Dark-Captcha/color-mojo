@@ -33,9 +33,13 @@ struct ColorLevel(Comparable, Copyable, Movable, TrivialRegisterPassable):
 
     var _tier: UInt8
 
+    @doc_hidden
     @always_inline
     def __init__(out self, *, tier: UInt8):
-        self._tier = tier
+        if tier > UInt8(3):
+            self._tier = UInt8(3)
+        else:
+            self._tier = tier
 
     # --- Resolution -----------------------------------------------------------
 

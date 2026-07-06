@@ -3,10 +3,10 @@ authors = ["Huỳnh Bảo Biên <baobien.dev@gmail.com>"]
 channels = ["https://conda.modular.com/max-nightly", "conda-forge"]
 name = "color-mojo"
 platforms = ["linux-64"]
-version = "0.2.0"
+version = "0.3.0"
 
 [tasks]
-test = "mojo run -I . tests/run_tests.mojo"
+test = "mojo run -I . tests/public_surface.mojo && mojo run -I . tests/run_tests.mojo"
 benchmark = "mojo run -I . benchmarks/run_benchmarks.mojo"
 example = "mojo run -I . examples/basic_usage.mojo"
 
@@ -20,4 +20,4 @@ mblack = ">=26.5.0.dev2026070123,<27"
 dev = { features = ["dev"], solve-group = "default" }
 
 [dependencies]
-mojo-compiler = ">=1.0.0b3.dev2026070123,<2"
+mojo = ">=1.0.0b3.dev2026070123,<2"
