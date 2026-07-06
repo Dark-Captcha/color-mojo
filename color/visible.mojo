@@ -1,3 +1,5 @@
+"""Provides escape-aware terminal text stripping and width measurement."""
+
 # visible — the visible-text view of bytes that may contain escape
 # sequences. `strip_escapes` returns the text a reader actually sees;
 # `visible_width` counts its code points without materializing it. Both
@@ -47,9 +49,14 @@ comptime _MODE_WRITE: Int = 2
 
 
 def strip_escapes(text: String) -> String:
-    """Return `text` with every recognized escape sequence removed. Plain
-    bytes pass through untouched; a dangling `ESC` is preserved. Exactly one
-    allocation, sized by a counting pass over the same walk that writes."""
+    """Removes every recognized terminal escape sequence.
+
+    Args:
+        text: The possibly styled text.
+
+    Returns:
+        Visible text with dangling escape bytes preserved.
+    """
     var bytes = text.as_bytes()
     var scratch = String("")
     var visible_length = _walk[_MODE_COUNT_BYTES](bytes, scratch)
@@ -62,9 +69,14 @@ def strip_escapes(text: String) -> String:
 
 
 def visible_width(text: String) -> Int:
-    """Code points a reader sees: escape sequences are zero, every code
-    point elsewhere is one (RFC 3629 byte classes). Cheaper than measuring
-    `strip_escapes` output — nothing is allocated."""
+    """Counts visible Unicode code points without allocating.
+
+    Args:
+        text: The possibly styled text.
+
+    Returns:
+        The number of visible code points, excluding escape sequences.
+    """
     var bytes = text.as_bytes()
     var scratch = String("")
     return _walk[_MODE_COUNT_POINTS](bytes, scratch)

@@ -1,3 +1,5 @@
+"""Defines deterministic terminal color-capability resolution."""
+
 # ColorLevel — the color capability tier of an output destination, plus the
 # pure resolver that interprets the conventional signals into a tier. Higher
 # tiers render everything lower tiers can; comparisons express that ordering
@@ -54,10 +56,20 @@ struct ColorLevel(Comparable, Copyable, Movable, TrivialRegisterPassable):
         colorterm: String = "",
         term: String = "",
     ) -> ColorLevel:
-        """The capability tier implied by the conventional signals — a pure
-        function. The caller supplies each value (an empty string reads as
-        unset) and the destination's TTY fact; nothing here consults the
-        process. Signals carry their conventional environment names."""
+        """Resolves conventional terminal signals into a capability tier.
+
+        Args:
+            is_tty: Whether the destination is an interactive terminal.
+            no_color: The `NO_COLOR` value, or an empty string when unset.
+            force_color: The `FORCE_COLOR` value, or an empty string.
+            clicolor: The `CLICOLOR` value, or an empty string.
+            clicolor_force: The `CLICOLOR_FORCE` value, or an empty string.
+            colorterm: The `COLORTERM` value, or an empty string.
+            term: The `TERM` value, or an empty string.
+
+        Returns:
+            The deterministic color capability implied by the inputs.
+        """
         if no_color.byte_length() > 0:
             return ColorLevel.NONE
 
@@ -102,39 +114,95 @@ struct ColorLevel(Comparable, Copyable, Movable, TrivialRegisterPassable):
 
     @always_inline
     def is_enabled(self) -> Bool:
-        """True when any color is supported — the tier is above `NONE`."""
+        """Checks whether any color capability is enabled.
+
+        Returns:
+            True when the tier is above `NONE`.
+        """
         return self._tier > UInt8(0)
 
     # --- Comparable -----------------------------------------------------------
 
     @always_inline
     def __eq__(self, other: ColorLevel) -> Bool:
+        """Checks two capability tiers for equality.
+
+        Args:
+            other: The tier to compare.
+
+        Returns:
+            True if both tiers are identical.
+        """
         return self._tier == other._tier
 
     @always_inline
     def __ne__(self, other: ColorLevel) -> Bool:
+        """Checks two capability tiers for inequality.
+
+        Args:
+            other: The tier to compare.
+
+        Returns:
+            True if the tiers differ.
+        """
         return self._tier != other._tier
 
     @always_inline
     def __lt__(self, other: ColorLevel) -> Bool:
+        """Checks whether this tier supports fewer colors.
+
+        Args:
+            other: The tier to compare.
+
+        Returns:
+            True if this tier is lower.
+        """
         return self._tier < other._tier
 
     @always_inline
     def __le__(self, other: ColorLevel) -> Bool:
+        """Checks whether this tier is no higher than another.
+
+        Args:
+            other: The tier to compare.
+
+        Returns:
+            True if this tier is lower or equal.
+        """
         return self._tier <= other._tier
 
     @always_inline
     def __gt__(self, other: ColorLevel) -> Bool:
+        """Checks whether this tier supports more colors.
+
+        Args:
+            other: The tier to compare.
+
+        Returns:
+            True if this tier is higher.
+        """
         return self._tier > other._tier
 
     @always_inline
     def __ge__(self, other: ColorLevel) -> Bool:
+        """Checks whether this tier is no lower than another.
+
+        Args:
+            other: The tier to compare.
+
+        Returns:
+            True if this tier is higher or equal.
+        """
         return self._tier >= other._tier
 
     comptime NONE: ColorLevel = ColorLevel(tier=UInt8(0))
+    """Disables terminal color escapes."""
     comptime ANSI16: ColorLevel = ColorLevel(tier=UInt8(1))
+    """Supports the sixteen named ANSI colors."""
     comptime ANSI256: ColorLevel = ColorLevel(tier=UInt8(2))
+    """Supports the xterm 256-color palette."""
     comptime TRUECOLOR: ColorLevel = ColorLevel(tier=UInt8(3))
+    """Supports 24-bit RGB colors."""
 
 
 # --- Private helpers -----------------------------------------------------------

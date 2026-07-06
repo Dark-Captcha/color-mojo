@@ -1,3 +1,5 @@
+"""Provides capability-aware terminal colors and text styles."""
+
 # color — the public surface: exactly the seven names below, re-exports
 # only (ARCHITECTURE.md, Public Surface). Import from `color` directly
 # (`from color import Painter, Style, Color`); the internal layout may move.

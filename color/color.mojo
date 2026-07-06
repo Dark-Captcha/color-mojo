@@ -1,3 +1,5 @@
+"""Defines terminal colors across ANSI16, ANSI256, and truecolor spaces."""
+
 # Color — one color value spanning the three ANSI color spaces, stored as a
 # four-byte tagged union (tag + three payload bytes) so it travels in
 # registers. The sixteen named colors are comptime constants and store their
@@ -57,20 +59,44 @@ struct Color(Comparable, Copyable, Movable, TrivialRegisterPassable):
     @staticmethod
     @always_inline
     def ansi256(index: UInt8) -> Color:
-        """An xterm-256 palette index, 0..255."""
+        """Creates a color from an xterm-256 palette index.
+
+        Args:
+            index: The palette index from 0 through 255.
+
+        Returns:
+            The indexed color.
+        """
         return Color(kind=_KIND_ANSI256, a=index, b=UInt8(0), c=UInt8(0))
 
     @staticmethod
     @always_inline
     def rgb(*, red: UInt8, green: UInt8, blue: UInt8) -> Color:
-        """A 24-bit RGB color. Channels are keyword-only so a transposed
-        call order is unrepresentable."""
+        """Creates a 24-bit RGB color.
+
+        Args:
+            red: The red channel.
+            green: The green channel.
+            blue: The blue channel.
+
+        Returns:
+            The truecolor value.
+        """
         return Color(kind=_KIND_RGB, a=red, b=green, c=blue)
 
     @staticmethod
     def from_hex(text: String) raises -> Color:
-        """Parse `"#rrggbb"` or `"rrggbb"` (case-insensitive) into an RGB
-        color. Raises on any other shape — parse constants once, at startup."""
+        """Parses a six-digit hexadecimal RGB color.
+
+        Args:
+            text: A `"#rrggbb"` or `"rrggbb"` string.
+
+        Returns:
+            The parsed truecolor value.
+
+        Raises:
+            If the text has the wrong length or contains a non-hex digit.
+        """
         var bytes = text.as_bytes()
         var offset = 0
         if len(bytes) > 0 and bytes[0] == UInt8(ord("#")):
@@ -90,9 +116,16 @@ struct Color(Comparable, Copyable, Movable, TrivialRegisterPassable):
 
     @always_inline
     def downgrade_to(self, level: ColorLevel) -> Color:
-        """The nearest color renderable at `level`. Identity at or above this
-        color's own tier; `NONE` is a rendering decision, not a color
-        transform, so it also returns the color unchanged."""
+        """Finds the nearest color renderable at a capability level.
+
+        Args:
+            level: The destination color capability.
+
+        Returns:
+            The nearest supported color, or this color when no downgrade is
+            required. `ColorLevel.NONE` also returns this color because
+            suppression is a rendering decision.
+        """
         if level >= ColorLevel.TRUECOLOR or level == ColorLevel.NONE:
             return self
         if self._kind == _KIND_RGB:
@@ -135,46 +168,110 @@ struct Color(Comparable, Copyable, Movable, TrivialRegisterPassable):
 
     @always_inline
     def __eq__(self, other: Color) -> Bool:
+        """Checks two colors for equality.
+
+        Args:
+            other: The color to compare.
+
+        Returns:
+            True if both colors have identical representations.
+        """
         return self._packed() == other._packed()
 
     @always_inline
     def __ne__(self, other: Color) -> Bool:
+        """Checks two colors for inequality.
+
+        Args:
+            other: The color to compare.
+
+        Returns:
+            True if the colors differ.
+        """
         return self._packed() != other._packed()
 
     @always_inline
     def __lt__(self, other: Color) -> Bool:
+        """Orders colors by their packed representations.
+
+        Args:
+            other: The color to compare.
+
+        Returns:
+            True if this color sorts before `other`.
+        """
         return self._packed() < other._packed()
 
     @always_inline
     def __le__(self, other: Color) -> Bool:
+        """Orders colors by their packed representations.
+
+        Args:
+            other: The color to compare.
+
+        Returns:
+            True if this color does not sort after `other`.
+        """
         return self._packed() <= other._packed()
 
     @always_inline
     def __gt__(self, other: Color) -> Bool:
+        """Orders colors by their packed representations.
+
+        Args:
+            other: The color to compare.
+
+        Returns:
+            True if this color sorts after `other`.
+        """
         return self._packed() > other._packed()
 
     @always_inline
     def __ge__(self, other: Color) -> Bool:
+        """Orders colors by their packed representations.
+
+        Args:
+            other: The color to compare.
+
+        Returns:
+            True if this color does not sort before `other`.
+        """
         return self._packed() >= other._packed()
 
     # --- The sixteen named colors (palette indexes 0..15) --------------------
 
     comptime BLACK: Color = Color._named(UInt8(0))
+    """The ANSI black color."""
     comptime RED: Color = Color._named(UInt8(1))
+    """The ANSI red color."""
     comptime GREEN: Color = Color._named(UInt8(2))
+    """The ANSI green color."""
     comptime YELLOW: Color = Color._named(UInt8(3))
+    """The ANSI yellow color."""
     comptime BLUE: Color = Color._named(UInt8(4))
+    """The ANSI blue color."""
     comptime MAGENTA: Color = Color._named(UInt8(5))
+    """The ANSI magenta color."""
     comptime CYAN: Color = Color._named(UInt8(6))
+    """The ANSI cyan color."""
     comptime WHITE: Color = Color._named(UInt8(7))
+    """The ANSI white color."""
     comptime BRIGHT_BLACK: Color = Color._named(UInt8(8))
+    """The bright ANSI black color."""
     comptime BRIGHT_RED: Color = Color._named(UInt8(9))
+    """The bright ANSI red color."""
     comptime BRIGHT_GREEN: Color = Color._named(UInt8(10))
+    """The bright ANSI green color."""
     comptime BRIGHT_YELLOW: Color = Color._named(UInt8(11))
+    """The bright ANSI yellow color."""
     comptime BRIGHT_BLUE: Color = Color._named(UInt8(12))
+    """The bright ANSI blue color."""
     comptime BRIGHT_MAGENTA: Color = Color._named(UInt8(13))
+    """The bright ANSI magenta color."""
     comptime BRIGHT_CYAN: Color = Color._named(UInt8(14))
+    """The bright ANSI cyan color."""
     comptime BRIGHT_WHITE: Color = Color._named(UInt8(15))
+    """The bright ANSI white color."""
 
 
 # --- Private helpers ----------------------------------------------------------

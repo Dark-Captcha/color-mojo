@@ -7,6 +7,7 @@ version = "0.3.0"
 
 [tasks]
 test = "mojo run -I . tests/public_surface.mojo && mojo run -I . tests/run_tests.mojo"
+doc = "mojo doc --diagnose-missing-doc-strings -Werror -o /tmp/color-mojo-doc.json color"
 benchmark = "mojo run -I . benchmarks/run_benchmarks.mojo"
 example = "mojo run -I . examples/basic_usage.mojo"
 

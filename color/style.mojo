@@ -1,3 +1,5 @@
+"""Defines immutable, composable terminal styling intent."""
+
 # Style — composable styling intent: optional foreground, optional
 # background, attribute set. Build fluently (`Style().foreground(Color.RED)
 # .bold()`); render verbatim with `paint` / `paint_into`. Style knows WHAT —
@@ -74,7 +76,14 @@ struct Style(Copyable, Movable):
 
     @always_inline
     def foreground(self, color: Color) -> Style:
-        """A new style with the foreground set to `color`."""
+        """Sets the foreground color.
+
+        Args:
+            color: The foreground color.
+
+        Returns:
+            A new style with the requested foreground.
+        """
         var next = Style(
             foreground=Optional[Color](color),
             background=self._background,
@@ -84,7 +93,14 @@ struct Style(Copyable, Movable):
 
     @always_inline
     def background(self, color: Color) -> Style:
-        """A new style with the background set to `color`."""
+        """Sets the background color.
+
+        Args:
+            color: The background color.
+
+        Returns:
+            A new style with the requested background.
+        """
         var next = Style(
             foreground=self._foreground,
             background=Optional[Color](color),
@@ -94,7 +110,14 @@ struct Style(Copyable, Movable):
 
     @always_inline
     def attribute(self, attribute: Attribute) -> Style:
-        """A new style with `attribute` merged in — accepts combined sets."""
+        """Adds one or more text attributes.
+
+        Args:
+            attribute: The attribute set to merge.
+
+        Returns:
+            A new style containing the merged attributes.
+        """
         var next = Style(
             foreground=self._foreground,
             background=self._background,
@@ -104,41 +127,85 @@ struct Style(Copyable, Movable):
 
     @always_inline
     def bold(self) -> Style:
+        """Adds the bold attribute.
+
+        Returns:
+            A new bold style.
+        """
         return self.attribute(Attribute.BOLD)
 
     @always_inline
     def dim(self) -> Style:
+        """Adds the dim attribute.
+
+        Returns:
+            A new dim style.
+        """
         return self.attribute(Attribute.DIM)
 
     @always_inline
     def italic(self) -> Style:
+        """Adds the italic attribute.
+
+        Returns:
+            A new italic style.
+        """
         return self.attribute(Attribute.ITALIC)
 
     @always_inline
     def underline(self) -> Style:
+        """Adds the underline attribute.
+
+        Returns:
+            A new underlined style.
+        """
         return self.attribute(Attribute.UNDERLINE)
 
     @always_inline
     def blink(self) -> Style:
+        """Adds the blink attribute.
+
+        Returns:
+            A new blinking style.
+        """
         return self.attribute(Attribute.BLINK)
 
     @always_inline
     def reverse(self) -> Style:
+        """Adds the reverse-video attribute.
+
+        Returns:
+            A new reverse-video style.
+        """
         return self.attribute(Attribute.REVERSE)
 
     @always_inline
     def hidden(self) -> Style:
+        """Adds the concealed-text attribute.
+
+        Returns:
+            A new concealed style.
+        """
         return self.attribute(Attribute.HIDDEN)
 
     @always_inline
     def strikethrough(self) -> Style:
+        """Adds the strikethrough attribute.
+
+        Returns:
+            A new struck-through style.
+        """
         return self.attribute(Attribute.STRIKETHROUGH)
 
     # --- Inspection -----------------------------------------------------------
 
     @always_inline
     def is_empty(self) -> Bool:
-        """True when painting would not change the text at all."""
+        """Checks whether painting would leave text unchanged.
+
+        Returns:
+            True if the style has no colors or attributes.
+        """
         return (
             not self._foreground
             and not self._background
@@ -149,8 +216,15 @@ struct Style(Copyable, Movable):
 
     @always_inline
     def paint(self, text: String) -> String:
-        """Wrap `text` in this style's SGR open sequence and the reset close.
-        One exact-length allocation; the empty style returns `text` unchanged."""
+        """Wraps text in this style's SGR sequence.
+
+        Args:
+            text: The text body.
+
+        Returns:
+            Styled text followed by an SGR reset, or unchanged text for an
+            empty style.
+        """
         if self.is_empty():
             return text.copy()
 
@@ -167,9 +241,15 @@ struct Style(Copyable, Movable):
 
     @always_inline
     def paint_into[W: Writer](self, mut writer: W, text: String):
-        """Write the styled text into `writer` without allocating: the open
-        sequence is assembled on the stack and viewed in place; the text
-        body streams through unbuffered."""
+        """Streams styled text without allocating an intermediate string.
+
+        Parameters:
+            W: The destination writer type.
+
+        Args:
+            writer: The destination writer.
+            text: The text body.
+        """
         if self.is_empty():
             writer.write(text)
             return

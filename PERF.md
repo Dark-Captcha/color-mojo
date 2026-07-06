@@ -15,7 +15,7 @@ Hot-path latency, measured by `pixi run benchmark` (N = 200,000 per path, median
 | `Style.paint` — truecolor RGB           | ~30     | 24-byte output, three channels via the digit-pair table                                           |
 | `Painter.paint` — RGB downgraded to 256 | ~8      | quantization plus paint; a held style's downgrade hoists out of the caller's loop                 |
 | `Painter.paint` — RGB downgraded to 16  | ~8      | adds the comptime 256→16 table read on top of the 256 quantizer                                   |
-| `Painter.paint` — disabled (`NONE`)     | ~0      | short-circuits before SGR work; this benchmark loop optimizes the plain copy away                  |
+| `Painter.paint` — disabled (`NONE`)     | ~0      | short-circuits before SGR work; this benchmark loop optimizes the plain copy away                 |
 | `Style.paint_into` — fresh String sink  | ~25     | includes constructing the sink each call; the render itself allocates nothing                     |
 | `ColorLevel.resolve` — changing signals | ~3      | the full ladder of String compares when a signal differs every call — the honest per-call ceiling |
 | `strip_escapes` — short painted input   | ~41     | 22 bytes to 5                                                                                     |
@@ -59,7 +59,7 @@ This release also renders strictly more per call than the prototype did: `Painte
 | Two-digit lookup table for SGR parameters                                                                                                                                         | `_internal/decimal.mojo`                 |
 | comptime-built 256→16 nearest-color table — the decode-and-search runs in the compile-time interpreter; runtime is one rodata read                                                | `_internal/quantize.mojo`                |
 | 16-wide SIMD scan for `ESC` on escape-free runs                                                                                                                                   | `visible.mojo`                           |
-| Disabled and empty paths return before touching SGR machinery; `paint_into` streams through without allocation, while `paint` still returns a plain `String` copy                  | `Painter.paint` at `NONE`, empty `Style` |
+| Disabled and empty paths return before touching SGR machinery; `paint_into` streams through without allocation, while `paint` still returns a plain `String` copy                 | `Painter.paint` at `NONE`, empty `Style` |
 | One-byte `Painter` — capability travels in a register                                                                                                                             | every capability-aware call              |
 
 ---

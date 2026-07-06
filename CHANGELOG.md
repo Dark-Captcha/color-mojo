@@ -8,10 +8,14 @@ All notable changes to color-mojo. Format follows [Keep a Changelog](https://kee
 
 - GitHub Actions CI for the current Mojo package targets: `linux-64`, `linux-aarch64`, and `osx-arm64`.
 - Dependabot updates for pinned GitHub Actions.
+- Repository instructions for coding agents, aligned with Modular's contribution and AI-assistance policies.
+- Strict public API documentation validation through `pixi run doc`.
 
 ### Changed
 
 - The Pixi manifest now declares all current Mojo package platforms and documents Windows as WSL/Linux rather than native `win-*`.
+- Public API docstrings now satisfy `mojo doc --diagnose-missing-doc-strings -Werror`.
+- CI actions are pinned to immutable commits and formatting must leave the tree unchanged.
 
 ## [0.3.0] — 2026-07-06
 

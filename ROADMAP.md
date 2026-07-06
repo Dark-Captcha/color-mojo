@@ -17,6 +17,6 @@ Direction after the 0.1.0 release. Deferred items carry their reason from ARCHIT
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | Nesting-aware repaint (opt-in) | Requires rescanning every input on every paint — off the default path by design                                                 |
 | OSC-8 hyperlink emitting       | Serves no current contract; stripping already handles incoming links                                                            |
-| Native Windows package support | Upstream Mojo currently supports Windows through WSL; add native Windows only when the `mojo` package exists for `win-*`       |
+| Native Windows package support | Upstream Mojo currently supports Windows through WSL; add native Windows only when the `mojo` package exists for `win-*`        |
 | Windows console support        | The library's bytes are already correct; a consuming application must enable VT processing — document that recipe when it lands |
 | Wide-glyph width (UAX #11)     | Belongs to a dedicated width library; `visible_width` stays code-point-based                                                    |
