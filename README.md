@@ -109,6 +109,11 @@ Requires Mojo `1.0.0b3` or later. Until a package is published, vendor the `colo
 from color import Painter, Style, Color
 ```
 
+Supported Pixi targets are `linux-64`, `linux-aarch64`, and `osx-arm64`.
+Windows users run through WSL with a compatible Linux distribution; native
+Windows and Intel macOS are not listed until the upstream `mojo` package exists
+for those targets.
+
 Development: `pixi run test`, `pixi run example`, `pixi run benchmark`, `pixi run format`.
 
 ---

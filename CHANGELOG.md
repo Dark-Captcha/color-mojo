@@ -2,6 +2,17 @@
 
 All notable changes to color-mojo. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer once 1.0.0 lands.
 
+## [Unreleased]
+
+### Added
+
+- GitHub Actions CI for the current Mojo package targets: `linux-64`, `linux-aarch64`, and `osx-arm64`.
+- Dependabot updates for pinned GitHub Actions.
+
+### Changed
+
+- The Pixi manifest now declares all current Mojo package platforms and documents Windows as WSL/Linux rather than native `win-*`.
+
 ## [0.3.0] — 2026-07-06
 
 ### Changed
