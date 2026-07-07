@@ -17,6 +17,9 @@ All notable changes to color-mojo. Format follows [Keep a Changelog](https://kee
 - The Pixi manifest now declares all current Mojo package platforms and documents Windows as WSL/Linux rather than native `win-*`.
 - Public API docstrings now satisfy `mojo doc --diagnose-missing-doc-strings -Werror`.
 - CI actions are pinned to immutable commits and formatting must leave the tree unchanged.
+- README, architecture, and agent instructions now state the runtime boundary:
+  color-mojo stays synchronous and runtime-neutral; async I/O, logging queues,
+  cancellation, and backpressure belong to callers.
 
 ## [0.3.0] — 2026-07-06
 

@@ -21,6 +21,7 @@
 - Public modules, types, fields, and functions require Mojo docstrings.
 - Preserve ownership and lifecycle behavior; avoid implicit copies of allocating values.
 - Add focused tests for every behavior change and benchmark evidence for performance claims.
+- Keep the package runtime-neutral. Async I/O, logging queues, cancellation, and backpressure belong to callers; do not add hidden environment reads, task spawning, or global workers.
 - Do not add platform claims that CI and the Pixi lock do not exercise.
 
 ## Contributions

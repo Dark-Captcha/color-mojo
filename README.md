@@ -32,6 +32,16 @@ Full contracts, non-goals, and the system map: [ARCHITECTURE.md](ARCHITECTURE.md
 
 ---
 
+## Runtime model
+
+color-mojo is sync and runtime-neutral. It never reads environment variables,
+checks TTY state, opens files, writes streams, starts tasks, or owns a worker
+pool. Async applications should gather signals and handle queues, cancellation,
+flushes, and backpressure in their own runtime, then call `Painter.paint` or
+`paint_into` as the final CPU-only formatting step.
+
+---
+
 ## Wiring real signals
 
 The application owns its sources — that is the point. For a classic terminal program:

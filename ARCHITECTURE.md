@@ -1,6 +1,6 @@
 # Architecture — color-mojo
 
-> **Version:** 0.3.0 | **Updated:** 2026-07-06
+> **Version:** 0.3.0 | **Updated:** 2026-07-07
 
 Purpose, binding contracts, scope, public surface, and system map of color-mojo — the criteria every structural decision in this library is judged against.
 
@@ -15,8 +15,9 @@ Purpose, binding contracts, scope, public surface, and system map of color-mojo 
 | 5   | [Non-Goals](#non-goals)           |
 | 6   | [Public Surface](#public-surface) |
 | 7   | [Conventions](#conventions)       |
-| 8   | [Standards](#standards)           |
-| 9   | [System Map](#system-map)         |
+| 8   | [Runtime Model](#runtime-model)   |
+| 9   | [Standards](#standards)           |
+| 10  | [System Map](#system-map)         |
 
 ---
 
@@ -144,6 +145,22 @@ Seven names. Everything else lives under `_internal/` and is not part of the con
 | Downward imports only            | `painter` → `style` → `color`/`attribute` → `color_level`; everyone may use `_internal`; never a cycle, never sideways.                                                          |
 | Keyword-only color channels      | `Color.rgb(*, red, green, blue)` — more than two same-typed arguments take keywords; the `rgb(b, g, r)` transposition bug is unrepresentable.                                    |
 | Sugar tiers                      | `Painter`: 24 one-line methods. `Style`: everything expressible. Each tier is one line over the tier below — never a second engine, never a hidden probe.                        |
+
+---
+
+## Runtime Model
+
+The library is synchronous, allocation-explicit, and runtime-neutral. It never reads process state, opens files, touches file descriptors, starts tasks, or owns a worker pool. The application gathers terminal signals, resolves one `Painter` per destination, and decides where async I/O, logging queues, cancellation, and backpressure live.
+
+| Work class        | Ruling                                                                                                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Signal gathering  | Outside this package. A CLI, logger, test harness, or async service reads environment variables, TTY state, config, and flags, then passes plain values to `Painter.resolve` / `ColorLevel.resolve`.    |
+| Painting          | Stay synchronous. Rendering is bounded CPU work over one input string; adding `async` would add scheduling semantics without removing blocking I/O because this package performs no I/O.                |
+| Logging pipelines | Queueing, dropping, flushing, deadlines, and cancellation belong to the logger/runtime. This package only turns a `Style` plus text plus destination capability into bytes.                             |
+| Parallelism       | Usually unnecessary. If a caller styles massive independent batches, shard above the package; do not hide global workers or ambient runtime policy in `Painter` or `Style`.                             |
+| Shared state      | The package has none. `Color`, `Attribute`, `Style`, `ColorLevel`, and `Painter` are plain values; sinks passed to `paint_into` are caller-owned and must obey the caller's own concurrency discipline. |
+
+This keeps the terminal-color layer usable from synchronous CLIs, async servers, tests, build scripts, and logging frameworks without imposing any one runtime.
 
 ---
 
